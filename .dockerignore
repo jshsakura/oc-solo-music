@@ -1,0 +1,12 @@
+.venv
+__pycache__
+.pytest_cache
+.git
+*.md
+tests
+library
+.env
+client/build
+client/.dart_tool
+client/android
+client/ios
