@@ -61,6 +61,9 @@ abstract class S {
   String get tapToPlay;
   String get playFromHere;
   String get offRecord;
+  String get playFromStart;
+  String get guideStart;
+  String get guideEnd;
   String get armLifted;
   String get cannotOpen;
 
@@ -121,6 +124,11 @@ abstract class S {
   String get homeLoad;
   String get homeLoadLabel;
   String get homeEmpty;
+
+  // 홈 보기
+  String get homeViewShelf;
+  String get homeViewCrate;
+  String homeShelfPlay(String title);
 
   // 서버 연결과 앱 받기
   String get serverTitle;
@@ -236,6 +244,12 @@ class _Ko extends S {
   @override
   String get offRecord => '판 밖입니다';
   @override
+  String get playFromStart => '처음부터 재생합니다';
+  @override
+  String get guideStart => '처음';
+  @override
+  String get guideEnd => '끝';
+  @override
   String get armLifted => '바늘을 올렸습니다';
   @override
   String get cannotOpen => '곡을 열지 못했습니다';
@@ -349,6 +363,14 @@ class _Ko extends S {
   String get homeLoadLabel => '턴테이블에 올리기';
   @override
   String get homeEmpty => '상자가 아직 비어 있습니다. 추가 탭에서 곡을 넣으면 여기에 꽂힙니다';
+
+  // 홈 보기
+  @override
+  String get homeViewShelf => '책장으로 보기';
+  @override
+  String get homeViewCrate => '판 상자로 보기';
+  @override
+  String homeShelfPlay(String title) => '$title 재생';
 
   @override
   String get serverTitle => '서버 연결';
@@ -513,6 +535,12 @@ class _En extends S {
   @override
   String get offRecord => 'Off the record';
   @override
+  String get playFromStart => 'Playing from the start';
+  @override
+  String get guideStart => 'Start';
+  @override
+  String get guideEnd => 'End';
+  @override
   String get armLifted => 'Needle lifted';
   @override
   String get cannotOpen => 'Could not open this song';
@@ -633,6 +661,14 @@ class _En extends S {
   @override
   String get homeEmpty =>
       'The crate is empty for now. Songs you add in the Add tab land here.';
+
+  // 홈 보기
+  @override
+  String get homeViewShelf => 'Shelf view';
+  @override
+  String get homeViewCrate => 'Crate view';
+  @override
+  String homeShelfPlay(String title) => 'Play $title';
 
   @override
   String get serverTitle => 'Connect to a server';
@@ -799,6 +835,12 @@ class _Ja extends S {
   @override
   String get offRecord => 'レコードの外です';
   @override
+  String get playFromStart => '最初から再生します';
+  @override
+  String get guideStart => '最初';
+  @override
+  String get guideEnd => '最後';
+  @override
   String get armLifted => '針を上げました';
   @override
   String get cannotOpen => '曲を開けませんでした';
@@ -912,6 +954,14 @@ class _Ja extends S {
   String get homeLoadLabel => 'ターンテーブルにのせる';
   @override
   String get homeEmpty => '箱はまだ空です。追加タブで曲を入れるとここに並びます';
+
+  // 홈 보기
+  @override
+  String get homeViewShelf => '棚で見る';
+  @override
+  String get homeViewCrate => '箱で見る';
+  @override
+  String homeShelfPlay(String title) => '$titleを再生';
 
   @override
   String get serverTitle => 'サーバーに接続';

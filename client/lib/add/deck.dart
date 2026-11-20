@@ -98,7 +98,7 @@ class _DeckState extends State<Deck> with SingleTickerProviderStateMixin {
           ),
           const SizedBox(height: 14),
           Container(
-            height: 112,
+            height: 136,
             decoration: BoxDecoration(
               color: Palette.ground,
               borderRadius: BorderRadius.circular(14),
@@ -107,39 +107,57 @@ class _DeckState extends State<Deck> with SingleTickerProviderStateMixin {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                if (job == null)
-                  Text(
-                    s.tapeHint,
-                    style: TextStyle(fontSize: 13, color: Palette.faint),
-                  ),
-                AnimatedSlide(
-                  offset: Offset(0, job == null ? -1.4 : 0),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeOutBack,
+                // 비어 있을 때도 데크로 보이게 테이프 자리의 윤곽과 멈춘 축을 그려 둡니다.
+                Align(
+                  alignment: const Alignment(0, -0.45),
                   child: AnimatedOpacity(
-                    opacity: job == null ? 0 : 1,
+                    opacity: job == null ? 1 : 0,
                     duration: const Duration(milliseconds: 250),
-                    child: _Tape(
-                      spin: _spin,
-                      progress: p,
-                      title: job?.label ?? '',
+                    child: const _EmptyBay(),
+                  ),
+                ),
+                if (job == null)
+                  Positioned(
+                    bottom: 10,
+                    child: Text(
+                      s.tapeHint,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Palette.faint,
+                      ),
+                    ),
+                  ),
+                Align(
+                  alignment: const Alignment(0, -0.45),
+                  child: AnimatedSlide(
+                    offset: Offset(0, job == null ? -1.4 : 0),
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeOutBack,
+                    child: AnimatedOpacity(
+                      opacity: job == null ? 0 : 1,
+                      duration: const Duration(milliseconds: 250),
+                      child: _Tape(
+                        spin: _spin,
+                        progress: p,
+                        title: job?.label ?? '',
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(100),
-            child: LinearProgressIndicator(
-              value: job == null ? 0 : p,
-              minHeight: 4,
-              backgroundColor: Palette.sunk,
-              color: Palette.butter,
-            ),
-          ),
           if (job != null) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: LinearProgressIndicator(
+                value: p,
+                minHeight: 4,
+                backgroundColor: Palette.sunk,
+                color: Palette.butter,
+              ),
+            ),
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
@@ -169,6 +187,74 @@ class _DeckState extends State<Deck> with SingleTickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// 테이프가 없는 데크 칸입니다. 테이프 크기의 점선 윤곽 안에 멈춘 축 두 개가 보입니다.
+class _EmptyBay extends StatelessWidget {
+  const _EmptyBay();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 250,
+    height: 86,
+    child: CustomPaint(
+      painter: const _BayPainter(),
+      child: const Stack(
+        children: [
+          Positioned(
+            left: 30,
+            top: 21,
+            child: Opacity(
+              opacity: 0.45,
+              child: CustomPaint(size: Size(44, 44), painter: _ReelPainter()),
+            ),
+          ),
+          Positioned(
+            right: 30,
+            top: 21,
+            child: Opacity(
+              opacity: 0.45,
+              child: CustomPaint(size: Size(44, 44), painter: _ReelPainter()),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _BayPainter extends CustomPainter {
+  const _BayPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outline = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
+      );
+    final dash = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = Palette.line2;
+    for (final metric in outline.computeMetrics()) {
+      for (var d = 0.0; d < metric.length; d += 10) {
+        canvas.drawPath(metric.extractPath(d, d + 5), dash);
+      }
+    }
+    // 테이프 창 자리입니다.
+    final window = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(size.width / 2, 43),
+        width: 70,
+        height: 22,
+      ),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(window, Paint()..color = Palette.sunk);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _Lamp extends StatelessWidget {

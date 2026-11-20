@@ -48,6 +48,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   double _rumbleT = rumbleSecs;
   bool _down = false;
   bool _armDragging = false;
+  bool _snapped = false;
   double _holdArm = armRest, _holdUntil = 0;
 
   double? _lastAngle;
@@ -58,9 +59,12 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   String? _trackId;
   bool _wasPlaying = false;
 
-  double _swapFrom = 0, _swapTo = 0;
-  Curve _swapCurve = Curves.linear;
   bool _swapping = false;
+
+  /// 판을 갈아 끼우는 동안 데크 밖(화면 전체)을 날아다니는 판입니다. 그동안 데크 위의 판은 숨깁니다.
+  final _discKey = GlobalKey();
+  OverlayEntry? _flying;
+  bool _discHidden = false;
 
   PlayerController get _c => widget.ctl;
 
@@ -89,6 +93,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   void dispose() {
     _c.removeListener(_onCtl);
     _ticker.dispose();
+    _flying?.remove();
     _swap.dispose();
     _frame.dispose();
     super.dispose();
@@ -196,24 +201,101 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     _tickCell = cell;
   }
 
-  /// 판을 갈아 끼웁니다. 지금 판이 반대쪽으로 날아가고 새 판이 들어와 앉습니다.
+  /// 판을 갈아 끼웁니다. 지금 판이 들려 올라 화면 끝까지 날아가고,
+  /// 새 판이 반대쪽 화면 끝에서 날아와 플래터에 툭 내려앉습니다.
   Future<void> swap(int dir) async {
     if (_swapping || _c.queue.isEmpty) return;
+    final box = _discKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (_reduce || box == null || overlay == null || !box.attached) {
+      await _c.skip(dir);
+      return;
+    }
     _swapping = true;
-    _swapFrom = 0;
-    _swapTo = -dir * 380;
-    _swapCurve = Curves.easeInCubic;
-    await _swap.forward(from: 0);
+    final home = box.localToGlobal(Offset.zero) & box.size;
+    final screen = MediaQuery.sizeOf(context).width;
+    // 다음 곡이면 지금 판이 왼쪽으로, 이전 곡이면 오른쪽으로 나갑니다.
+    final outX = dir > 0 ? -home.width - 40 : screen + 40;
+    final inX = dir > 0 ? screen + 40 : -home.width - 40;
+
+    HapticFeedback.lightImpact();
+    await _fly(overlay, home, toX: outX, leaving: true, dir: dir);
     await _c.skip(dir);
-    _swapFrom = dir * 380;
-    _swapTo = 0;
-    _swapCurve = Curves.easeOutBack;
-    await _swap.forward(from: 0);
+    if (!mounted) return;
+    await _fly(overlay, home, toX: inX, leaving: false, dir: dir);
+    if (!mounted) return;
+    setState(() => _discHidden = false);
+    _rumbleT = 0;
+    _wake();
     _swapping = false;
   }
 
-  double get _swapX =>
-      lerpDouble(_swapFrom, _swapTo, _swapCurve.transform(_swap.value))!;
+  /// 판 하나를 화면 위로 날립니다. leaving 이면 제자리에서 toX 로, 아니면 toX 에서 제자리로 옵니다.
+  Future<void> _fly(
+    OverlayState overlay,
+    Rect home, {
+    required double toX,
+    required bool leaving,
+    required int dir,
+  }) async {
+    final track = _c.current;
+    _swap.duration = Duration(milliseconds: leaving ? 460 : 620);
+    _flying?.remove();
+    _flying = OverlayEntry(
+      builder: (context) => AnimatedBuilder(
+        animation: _swap,
+        builder: (context, child) {
+          final t = _swap.value;
+          final e = leaving
+              ? Curves.easeInCubic.transform(t)
+              : Curves.easeOutCubic.transform(t);
+          // 나갈 때는 0→1, 들어올 때는 1→0 으로 제자리에서 멀어진 정도입니다.
+          final away = leaving ? e : 1 - e;
+          final x = lerpDouble(home.left, toX, away)!;
+          // 손으로 들어 올린 판처럼 가운데서 위로 둥글게 떴다가 내려옵니다.
+          final y = home.top - 70 * sin(pi * away.clamp(0.0, 1.0));
+          final lift = leaving
+              ? Curves.easeOut.transform((t * 3).clamp(0.0, 1.0))
+              : 1 - Curves.easeIn.transform(((t - 0.7) / 0.3).clamp(0.0, 1.0));
+          final scale = 1 + 0.07 * lift;
+          final spin = -dir * 160 * away * pi / 180;
+          return Positioned(
+            left: x,
+            top: y,
+            width: home.width,
+            height: home.height,
+            child: IgnorePointer(
+              child: Transform.rotate(
+                angle: spin,
+                child: Transform.scale(
+                  scale: scale,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0x3316161A),
+                          blurRadius: 10 + 26 * lift,
+                          offset: Offset(0, 4 + 18 * lift),
+                        ),
+                      ],
+                    ),
+                    child: child,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+        child: _Disc(motion: this, track: track, api: _c.api),
+      ),
+    );
+    overlay.insert(_flying!);
+    if (!_discHidden) setState(() => _discHidden = true);
+    await _swap.forward(from: 0);
+    _flying?.remove();
+    _flying = null;
+  }
 
   double _angleAt(Offset local) =>
       atan2(local.dy - _disc / 2, local.dx - _disc / 2) * 180 / pi;
@@ -269,25 +351,35 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   }
 
   void _armUpdate(Offset local) {
-    _armDragging = true;
-    _arm = _armAngleAt(local);
+    if (!_armDragging) setState(() => _armDragging = true);
+    final raw = _armAngleAt(local);
+    final at = armDropFraction(raw);
+    final snapped = at == 0;
+    // 처음 근처에 들고 오면 바늘이 바깥 홈에 딸깍 붙습니다.
+    _arm = snapped ? armStart : raw;
     _armVel = 0;
-    final onRecord = _arm >= armStart;
-    if (onRecord) {
-      final secs = min(1.0, (_arm - armStart) / armSpan) * _c.durationSecs;
+    if (at != null) {
+      final secs = at * _c.durationSecs;
       _c.scrubTo(secs);
-      _scrubTick(secs);
+      if (snapped && !_snapped) {
+        HapticFeedback.mediumImpact();
+      } else if (!snapped) {
+        _scrubTick(secs);
+      }
     } else {
       _tickCell = null;
     }
+    _snapped = snapped;
     _wake();
+    final s = S.of(context);
     widget.onHint(
-      onRecord ? S.of(context).playFromHere : S.of(context).offRecord,
+      snapped ? s.playFromStart : (at != null ? s.playFromHere : s.offRecord),
     );
   }
 
   void _armEnd() {
-    _armDragging = false;
+    if (_armDragging) setState(() => _armDragging = false);
+    _snapped = false;
     _tickCell = null;
     final target = _c.scrubbing;
     _c.scrubTo(null);
@@ -336,18 +428,9 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
             top: _discTop,
             width: _disc,
             height: _disc,
-            child: AnimatedBuilder(
-              animation: _swap,
-              builder: (context, child) {
-                final sx = _swapX;
-                return Transform.translate(
-                  offset: Offset(sx, 0),
-                  child: Transform.rotate(
-                    angle: sx / 8 * pi / 180,
-                    child: child,
-                  ),
-                );
-              },
+            child: Opacity(
+              key: _discKey,
+              opacity: _discHidden ? 0 : 1,
               child: GestureDetector(
                 onTap: () {
                   _c.toggle();
@@ -380,6 +463,28 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
                     child: CustomPaint(painter: _ArmPainter(_lift)),
                   );
                 },
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _armDragging ? 1 : 0,
+                duration: Duration(milliseconds: _armDragging ? 140 : 360),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _frame,
+                  builder: (context, _, _) => CustomPaint(
+                    painter: _DropGuide(
+                      pivot: _pivot,
+                      arm: _arm,
+                      snapped: _snapped,
+                      startLabel: '${S.of(context).guideStart} 0:00',
+                      endLabel:
+                          '${S.of(context).guideEnd} ${formatTime(_c.durationSecs)}',
+                      nowLabel: formatTime(_c.shownSecs),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -654,4 +759,156 @@ class _Pivot extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// 바늘을 들고 있는 동안 판 위에 바늘 끝이 지나는 길을 그립니다.
+/// 처음(바깥 홈)과 끝(안쪽 홈)에 표시를 두고, 지금 자리의 시간을 바늘 끝 옆에 띄웁니다.
+class _DropGuide extends CustomPainter {
+  _DropGuide({
+    required this.pivot,
+    required this.arm,
+    required this.snapped,
+    required this.startLabel,
+    required this.endLabel,
+    required this.nowLabel,
+  });
+
+  final Offset pivot;
+  final double arm;
+  final bool snapped;
+  final String startLabel, endLabel, nowLabel;
+
+  static const _rad = pi / 180;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCircle(center: pivot, radius: armTipReach);
+    // 각도 θ 의 바늘 끝은 축에서 (θ + 90)도 방향에 있습니다.
+    final from = (armStart + 90) * _rad;
+    final onRecord = arm >= armStart;
+    canvas.drawArc(
+      rect,
+      from,
+      armSpan * _rad,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 12
+        ..color = Palette.butter.withValues(alpha: 0.28),
+    );
+    if (onRecord && !snapped) {
+      canvas.drawArc(
+        rect,
+        from,
+        min(arm - armStart, armSpan) * _rad,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 5
+          ..color = Palette.butter,
+      );
+    }
+
+    final start = armTip(pivot, armStart);
+    final end = armTip(pivot, armStart + armSpan);
+    if (snapped) {
+      canvas.drawCircle(
+        start,
+        16,
+        Paint()..color = Palette.butter.withValues(alpha: 0.45),
+      );
+    }
+    canvas
+      ..drawCircle(start, snapped ? 9 : 7, Paint()..color = Palette.butter)
+      ..drawCircle(
+        start,
+        snapped ? 9 : 7,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Palette.ink,
+      )
+      ..drawCircle(end, 5.5, Paint()..color = Palette.surface)
+      ..drawCircle(end, 3.5, Paint()..color = Palette.ink);
+
+    _pill(
+      canvas,
+      startLabel,
+      start + const Offset(14, 10),
+      Palette.butter,
+      Palette.ink,
+      bold: snapped,
+    );
+    _pill(
+      canvas,
+      endLabel,
+      end + const Offset(-12, 12),
+      Palette.surface,
+      Palette.ink,
+      alignRight: true,
+    );
+    if (onRecord && !snapped) {
+      _pill(
+        canvas,
+        nowLabel,
+        armTip(pivot, arm) + const Offset(-14, -30),
+        Palette.ink,
+        Palette.butter,
+        alignRight: true,
+        bold: true,
+      );
+    }
+  }
+
+  void _pill(
+    Canvas canvas,
+    String text,
+    Offset at,
+    Color bg,
+    Color fg, {
+    bool alignRight = false,
+    bool bold = false,
+  }) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: fg,
+          fontSize: 11.5,
+          fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final box = Rect.fromLTWH(
+      alignRight ? at.dx - tp.width - 16 : at.dx,
+      at.dy,
+      tp.width + 16,
+      tp.height + 8,
+    );
+    canvas
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          box.shift(const Offset(0, 1.5)),
+          const Radius.circular(100),
+        ),
+        Paint()..color = const Color(0x2616161A),
+      )
+      ..drawRRect(
+        RRect.fromRectAndRadius(box, const Radius.circular(100)),
+        Paint()..color = bg,
+      );
+    tp.paint(canvas, box.topLeft + const Offset(8, 4));
+  }
+
+  @override
+  bool shouldRepaint(_DropGuide old) =>
+      old.arm != arm ||
+      old.snapped != snapped ||
+      old.nowLabel != nowLabel ||
+      old.startLabel != startLabel ||
+      old.endLabel != endLabel;
 }

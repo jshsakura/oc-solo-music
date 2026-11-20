@@ -17,7 +17,7 @@ import 'widgets/motion_math.dart';
 enum AppTab { home, library, player, add, connect }
 
 (IconData, String) _tabOf(S s, AppTab t) => switch (t) {
-  AppTab.home => (Icons.home_outlined, s.tabHome),
+  AppTab.home => (Icons.inventory_2_outlined, s.tabHome),
   AppTab.library => (Icons.album_outlined, s.tabLibrary),
   AppTab.player => (Icons.radio_button_checked_rounded, s.tabPlayer),
   AppTab.add => (Icons.add_circle_outline_rounded, s.tabAdd),
@@ -381,7 +381,7 @@ class _BottomBar extends StatelessWidget {
         height: 58,
         child: Stack(
           children: [
-            // 고른 탭 아이콘 뒤의 버터색 알약이 탭 사이를 미끄러져 옮겨 갑니다.
+            // 고른 탭의 아이콘과 이름을 함께 감싸는 버터색 알약이 탭 사이를 미끄러져 옮겨 갑니다.
             AnimatedAlign(
               duration: reducedMotion(context)
                   ? Duration.zero
@@ -389,20 +389,26 @@ class _BottomBar extends StatelessWidget {
               curve: Curves.easeOutBack,
               alignment: Alignment(
                 -1 + 2 * current.index / (AppTab.values.length - 1),
-                -1,
+                0,
               ),
               child: FractionallySizedBox(
                 widthFactor: 1 / AppTab.values.length,
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    margin: const EdgeInsets.only(top: 5),
-                    width: 56,
-                    height: 28,
-                    decoration: ShapeDecoration(
-                      color: Palette.butter.withValues(alpha: .55),
-                      shape: const StadiumBorder(),
-                    ),
+                heightFactor: 1,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Palette.butter,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Palette.butter.withValues(alpha: .45),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -433,7 +439,7 @@ class _BottomBar extends StatelessWidget {
                                     : Palette.faint,
                               ),
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 3),
                             AnimatedDefaultTextStyle(
                               duration: const Duration(milliseconds: 220),
                               style: TextStyle(
