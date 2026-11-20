@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../player_controller.dart';
 import '../theme.dart';
 import '../l10n.dart';
+import '../widgets/motion.dart';
 
 /// 재생 화면 아래의 알약 막대입니다. 섞기, 반복, 좋아요, 파일 받기, 잠들기 타이머가 들어 있습니다.
 class ControlRow extends StatefulWidget {
@@ -79,7 +81,11 @@ class _ControlRowState extends State<ControlRow> {
                 ? Icons.favorite_rounded
                 : Icons.favorite_border_rounded,
             color: liked ? Palette.bad : null,
-            onTap: _c.toggleLike,
+            burst: liked,
+            onTap: () {
+              if (!liked) HapticFeedback.lightImpact();
+              _c.toggleLike();
+            },
           ),
           _Slot(
             label: saved ? s.saved : s.download,
@@ -117,6 +123,7 @@ class _Slot extends StatelessWidget {
     this.dot = true,
     this.color,
     this.tag,
+    this.burst = false,
   });
 
   final String label;
@@ -127,33 +134,61 @@ class _Slot extends StatelessWidget {
   final Color? color;
   final String? tag;
 
+  /// 켜지는 순간 하트처럼 조각을 터뜨립니다.
+  final bool burst;
+
   @override
   Widget build(BuildContext context) => Expanded(
     child: Semantics(
       button: true,
       label: label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
+      child: Pressable(
+        scale: .82,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
         child: Stack(
           alignment: Alignment.center,
           children: [
-            AnimatedScale(
-              scale: active ? 1.08 : 1,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.elasticOut,
-              child: Icon(
-                icon,
-                size: 22,
-                color: color ?? (active ? Palette.ink : Palette.off),
+            PopBurst(
+              on: burst,
+              child: AnimatedScale(
+                scale: active ? 1.08 : 1,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.elasticOut,
+                // 아이콘이 바뀌면(섞기, 반복 한 곡, 받기 끝) 반 바퀴 돌며 갈아 끼웁니다.
+                child: AnimatedSwitcher(
+                  duration: reducedMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 320),
+                  switchInCurve: Curves.easeOutBack,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, a) => RotationTransition(
+                    turns: Tween(begin: -.25, end: 0.0).animate(a),
+                    child: ScaleTransition(
+                      scale: a,
+                      child: FadeTransition(opacity: a, child: child),
+                    ),
+                  ),
+                  child: TweenAnimationBuilder<Color?>(
+                    key: ValueKey(icon),
+                    tween: ColorTween(
+                      end: color ?? (active ? Palette.ink : Palette.off),
+                    ),
+                    duration: const Duration(milliseconds: 220),
+                    builder: (_, c, _) => Icon(icon, size: 22, color: c),
+                  ),
+                ),
               ),
             ),
             if (dot)
               Positioned(
                 bottom: 8,
-                child: AnimatedOpacity(
-                  opacity: active ? 1 : 0,
-                  duration: const Duration(milliseconds: 200),
+                child: AnimatedScale(
+                  scale: active ? 1 : 0,
+                  duration: const Duration(milliseconds: 380),
+                  curve: Curves.elasticOut,
                   child: Container(
                     width: 4,
                     height: 4,
