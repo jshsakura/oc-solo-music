@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 
 import 'api.dart';
 
@@ -82,7 +83,20 @@ class PlayerController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      await _player.setUrl(api.audioUri(track.id).toString());
+      final auth = api.headers.isEmpty ? null : api.headers;
+      await _player.setAudioSource(
+        AudioSource.uri(
+          api.audioUri(track.id),
+          headers: kIsWeb ? null : auth,
+          tag: MediaItem(
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            artUri: track.hasCover ? api.coverUri(track.id) : null,
+            artHeaders: auth,
+          ),
+        ),
+      );
       if (play) unawaited(_player.play());
     } on Exception catch (e) {
       error = e;

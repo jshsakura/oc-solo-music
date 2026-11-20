@@ -272,6 +272,7 @@ class _Disc extends StatelessWidget {
         : t.hasCover
         ? Image.network(
             api.coverUri(t.id).toString(),
+            headers: api.headers,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => _Letter(t),
           )

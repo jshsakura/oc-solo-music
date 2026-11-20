@@ -138,7 +138,7 @@ def test_index_fills_absolute_og_image_url(client):
     html = client.get("/", headers={"Host": "music.example.com", "X-Forwarded-Proto": "https"}).text
 
     assert 'content="https://music.example.com/og-image.png"' in html
-    assert "{{origin}}" not in html
+    assert "__SOLO_ORIGIN__" not in html
 
 
 def test_index_escapes_hostile_host_header(client):
@@ -253,3 +253,26 @@ def test_malformed_progress_line_is_not_read_as_progress():
     assert main.PROGRESS_LINE.match("[progress] 0.42")
     assert not main.PROGRESS_LINE.match("[progress] .")
     assert not main.PROGRESS_LINE.match("[progress] 1.2.3")
+
+
+def test_app_reports_no_android_build_until_one_is_shipped(client):
+    assert client.get("/api/app").json() == {"android": None}
+    assert client.get("/solo.apk").status_code == 404
+
+
+def test_shipped_apk_is_offered_and_downloads_as_an_android_package(lib, monkeypatch):
+    from tests.conftest import make_client
+
+    apk_dir = lib / "_apk"
+    apk_dir.mkdir()
+    (apk_dir / "solo.apk").write_bytes(b"PK" + b"\0" * 98)
+    (apk_dir / "version.txt").write_text("1.0.0+7\n")
+
+    with make_client(lib, monkeypatch) as c:
+        info = c.get("/api/app").json()["android"]
+        res = c.get("/solo.apk")
+
+    assert info == {"version": "1.0.0+7", "size": 100, "url": "/solo.apk"}
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/vnd.android.package-archive"
+    assert "Solo.apk" in res.headers["content-disposition"]

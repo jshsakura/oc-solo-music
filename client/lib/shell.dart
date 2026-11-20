@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'add/add_screen.dart';
 import 'add/jobs_watch.dart';
 import 'api.dart';
+import 'connect/connect_screen.dart';
 import 'l10n.dart';
 import 'library_screen.dart';
 import 'player/player_screen.dart';
@@ -21,8 +22,11 @@ enum AppTab { home, library, player, add, connect }
 
 /// 앱 전체 틀입니다. 곡 목록을 한 번 받아 보관함과 재생 화면이 같이 씁니다.
 class Shell extends StatefulWidget {
-  const Shell({super.key, required this.api});
+  const Shell({super.key, required this.api, this.onChangeServer});
   final Api api;
+
+  /// 앱에서만 있습니다. 다른 서버로 바꿀 때 부릅니다.
+  final VoidCallback? onChangeServer;
 
   @override
   State<Shell> createState() => _ShellState();
@@ -109,9 +113,9 @@ class _ShellState extends State<Shell> {
       note: S.of(context).homeLater,
     ),
     AppTab.add => AddScreen(api: widget.api, watch: _jobs),
-    AppTab.connect => _Later(
-      title: S.of(context).tabConnect,
-      note: S.of(context).connectLater,
+    AppTab.connect => ConnectScreen(
+      api: widget.api,
+      onChangeServer: widget.onChangeServer,
     ),
   };
 

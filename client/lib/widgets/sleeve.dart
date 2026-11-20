@@ -41,6 +41,7 @@ class Sleeve extends StatelessWidget {
       child: track.hasCover
           ? Image.network(
               api.coverUri(track.id).toString(),
+              headers: api.headers,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => fallback,
             )

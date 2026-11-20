@@ -117,6 +117,11 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "Already saved. Use --force to record it again",
         "ja": "すでにあります。もう一度録音するには --force を使います",
     },
+    "app.no_apk": {
+        "ko": "아직 받을 수 있는 안드로이드 앱이 없습니다",
+        "en": "No Android app is available yet",
+        "ja": "ダウンロードできる Android アプリはまだありません",
+    },
     "auth.required": {
         "ko": "인증이 필요합니다",
         "en": "Authentication required",

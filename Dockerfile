@@ -23,7 +23,8 @@ ENV SOLO_VERSION=$VERSION \
     PIP_NO_CACHE_DIR=1 \
     RECORDER_NO_SANDBOX=1 \
     SOLO_LIB=/library \
-    SOLO_WEB=/app/web
+    SOLO_WEB=/app/web \
+    SOLO_APK_DIR=/app/apk
 
 # 수노 플레이어는 MSE 로 소리를 풀어 재생하므로 헤드리스 크롬 안에서 실제로 재생시켜 녹음한다.
 # 크롬은 .deb 로 깐다(playwright 번들 chromium 은 코덱이 빠져 있어 쓰지 않는다).
@@ -41,6 +42,8 @@ RUN pip install -r requirements.txt
 
 COPY app/ ./app/
 COPY --from=web /client/build/web ./web/
+# CI 가 빌드한 안드로이드 앱입니다. 로컬 빌드에서는 비어 있어 /solo.apk 가 404 를 냅니다.
+COPY apk/ ./apk/
 
 VOLUME ["/library"]
 EXPOSE 8000

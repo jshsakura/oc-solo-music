@@ -112,6 +112,21 @@ abstract class S {
 
   // 서버 오류
   String get unreachable;
+
+  // 서버 연결과 앱 받기
+  String get serverTitle;
+  String get serverIntro;
+  String get serverAddress;
+  String get serverPassword;
+  String get serverConnect;
+  String get serverBadAddress;
+  String get serverWrongPassword;
+  String get serverNow;
+  String get serverChange;
+  String get androidApp;
+  String get androidAppNote;
+  String get androidGet;
+  String androidBuild(String version, String size);
   String apiFail(ApiFail what);
 
   /// 오류를 한 줄로 바꿉니다. 서버가 화면 언어로 사유를 보냈으면 그 사유를 그대로 씁니다.
@@ -274,6 +289,33 @@ class _Ko extends S {
   String get connectLater => '유튜브와 구글 드라이브 연결을 다음 단계에서 붙입니다';
   @override
   String get unreachable => '서버에 닿지 못했습니다';
+
+  @override
+  String get serverTitle => '서버 연결';
+  @override
+  String get serverIntro => 'Solo 서버 주소를 넣으면 이 기기에서 보관함을 듣습니다';
+  @override
+  String get serverAddress => '서버 주소';
+  @override
+  String get serverPassword => '비밀번호 (없으면 비워 둡니다)';
+  @override
+  String get serverConnect => '연결';
+  @override
+  String get serverBadAddress => '주소가 올바르지 않습니다';
+  @override
+  String get serverWrongPassword => '비밀번호가 맞지 않습니다';
+  @override
+  String get serverNow => '연결된 서버';
+  @override
+  String get serverChange => '서버 바꾸기';
+  @override
+  String get androidApp => '안드로이드 앱';
+  @override
+  String get androidAppNote => '앱으로 들으면 화면을 꺼도 재생이 이어집니다';
+  @override
+  String get androidGet => '앱 받기';
+  @override
+  String androidBuild(String version, String size) => '버전 $version · $size';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => '곡 목록을 받지 못했습니다',
@@ -287,6 +329,7 @@ class _Ko extends S {
     ApiFail.restore => '곡을 되살리지 못했습니다',
     ApiFail.archive => '뺀 곡 목록을 받지 못했습니다',
     ApiFail.youtubeStatus => '유튜브 상태를 받지 못했습니다',
+    ApiFail.app => '앱 정보를 받지 못했습니다',
   };
 }
 
@@ -448,6 +491,35 @@ class _En extends S {
   String get connectLater => 'YouTube and Google Drive come in the next step';
   @override
   String get unreachable => 'Could not reach the server';
+
+  @override
+  String get serverTitle => 'Connect to a server';
+  @override
+  String get serverIntro =>
+      'Enter your Solo server address to play your shelf on this device';
+  @override
+  String get serverAddress => 'Server address';
+  @override
+  String get serverPassword => 'Password (leave empty if none)';
+  @override
+  String get serverConnect => 'Connect';
+  @override
+  String get serverBadAddress => 'That address does not look right';
+  @override
+  String get serverWrongPassword => 'Wrong password';
+  @override
+  String get serverNow => 'Connected server';
+  @override
+  String get serverChange => 'Change server';
+  @override
+  String get androidApp => 'Android app';
+  @override
+  String get androidAppNote => 'The app keeps playing with the screen off';
+  @override
+  String get androidGet => 'Get the app';
+  @override
+  String androidBuild(String version, String size) =>
+      'Version $version · $size';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => 'Could not load your songs',
@@ -461,6 +533,7 @@ class _En extends S {
     ApiFail.restore => 'Could not restore the song',
     ApiFail.archive => 'Could not load removed songs',
     ApiFail.youtubeStatus => 'Could not check YouTube',
+    ApiFail.app => 'Could not load the app details',
   };
 }
 
@@ -614,6 +687,33 @@ class _Ja extends S {
   String get connectLater => 'YouTube と Google ドライブの連携は次の段階で付けます';
   @override
   String get unreachable => 'サーバーにつながりませんでした';
+
+  @override
+  String get serverTitle => 'サーバーに接続';
+  @override
+  String get serverIntro => 'Solo サーバーのアドレスを入れると、この端末でライブラリを聴けます';
+  @override
+  String get serverAddress => 'サーバーのアドレス';
+  @override
+  String get serverPassword => 'パスワード (なければ空のまま)';
+  @override
+  String get serverConnect => '接続';
+  @override
+  String get serverBadAddress => 'アドレスが正しくありません';
+  @override
+  String get serverWrongPassword => 'パスワードが違います';
+  @override
+  String get serverNow => '接続中のサーバー';
+  @override
+  String get serverChange => 'サーバーを変える';
+  @override
+  String get androidApp => 'Android アプリ';
+  @override
+  String get androidAppNote => 'アプリなら画面を消しても再生が続きます';
+  @override
+  String get androidGet => 'アプリを入手';
+  @override
+  String androidBuild(String version, String size) => 'バージョン $version · $size';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => '曲の一覧を読み込めませんでした',
@@ -627,5 +727,6 @@ class _Ja extends S {
     ApiFail.restore => '曲を戻せませんでした',
     ApiFail.archive => '外した曲の一覧を読み込めませんでした',
     ApiFail.youtubeStatus => 'YouTube の状態を確認できませんでした',
+    ApiFail.app => 'アプリの情報を取得できませんでした',
   };
 }

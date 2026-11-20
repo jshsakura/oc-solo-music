@@ -30,6 +30,8 @@ from .serving import ranged_file
 LIB = Path(os.environ.get("SOLO_LIB", Path.home() / "app" / "suno-music"))
 # 화면은 Flutter 웹 빌드입니다. 이미지에서는 /app/web, 개발 중에는 client/build/web 을 씁니다.
 WEB = Path(os.environ.get("SOLO_WEB", Path(__file__).resolve().parent.parent / "client" / "build" / "web"))
+# 안드로이드 앱입니다. CI 가 빌드한 solo.apk 와 version.txt 를 이미지의 /app/apk 에 넣습니다.
+APK_DIR = Path(os.environ.get("SOLO_APK_DIR", Path(__file__).resolve().parent.parent / "apk"))
 # 비워 두면 인증 없이 엽니다(LAN 이나 Cloudflare Access 같은 앞단 인증 뒤에 둘 때).
 PASSWORD = os.environ.get("SOLO_PASSWORD", "")
 
@@ -428,13 +430,36 @@ async def no_stale_shell(request: Request, call_next):
     return resp
 
 
+def apk_info() -> dict | None:
+    apk = APK_DIR / "solo.apk"
+    if not apk.is_file():
+        return None
+    version_file = APK_DIR / "version.txt"
+    version = version_file.read_text().strip() if version_file.is_file() else ""
+    return {"version": version, "size": apk.stat().st_size, "url": "/solo.apk"}
+
+
+@app.get("/api/app")
+def api_app():
+    """웹 화면이 앱 받기 버튼을 띄울지 정할 때 씁니다."""
+    return {"android": apk_info()}
+
+
+@app.get("/solo.apk", include_in_schema=False)
+def solo_apk():
+    if apk_info() is None:
+        raise SoloError(404, "app.no_apk")
+    return FileResponse(APK_DIR / "solo.apk", filename="Solo.apk",
+                        media_type="application/vnd.android.package-archive")
+
+
 @app.get("/", include_in_schema=False)
 def index(request: Request) -> Response:
     """링크 미리보기는 절대 주소를 요구하므로, 요청이 들어온 주소를 OG 이미지 경로에 넣습니다."""
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     proto = proto if proto in ("http", "https") else "https"
     origin = html.escape(f"{proto}://{request.headers.get('host', request.url.netloc)}", quote=True)
-    page = (WEB / "index.html").read_text().replace("{{origin}}", origin)
+    page = (WEB / "index.html").read_text().replace("__SOLO_ORIGIN__", origin)
     return Response(page, media_type="text/html; charset=utf-8")
 
 

@@ -3,3 +3,6 @@ __pycache__/
 .pytest_cache/
 .env
 library/
+
+apk/*
+!apk/.gitkeep

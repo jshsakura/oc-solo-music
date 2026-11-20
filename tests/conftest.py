@@ -14,6 +14,7 @@ def lib(tmp_path, monkeypatch):
     web.mkdir()
     shutil.copy(Path(__file__).parent.parent / "client" / "web" / "index.html", web)
     monkeypatch.setenv("SOLO_WEB", str(web))
+    monkeypatch.setenv("SOLO_APK_DIR", str(tmp_path / "_apk"))
     return tmp_path
 
 

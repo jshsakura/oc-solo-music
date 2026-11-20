@@ -115,6 +115,22 @@ enum ApiFail {
   restore,
   archive,
   youtubeStatus,
+  app,
+}
+
+/// 서버가 내주는 안드로이드 앱 한 벌입니다.
+class AppBuild {
+  const AppBuild({required this.version, required this.size});
+
+  factory AppBuild.fromJson(Map<String, dynamic> j) => AppBuild(
+    version: j['version'] as String? ?? '',
+    size: (j['size'] as num?)?.toInt() ?? 0,
+  );
+
+  final String version;
+  final int size;
+
+  String get sizeLabel => '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
 class ApiException implements Exception {
@@ -129,21 +145,25 @@ class ApiException implements Exception {
   String toString() => 'ApiException($what, $status, $detail)';
 }
 
-/// Solo 서버와 이야기합니다. 웹은 자기를 내려준 서버를, 앱은 `--dart-define=SOLO_SERVER=` 로 받은 주소를 씁니다.
+/// Solo 서버와 이야기합니다. 어느 서버를 쓸지는 main.dart 가 정합니다.
 class Api {
-  Api(this.base, {http.Client? client}) {
-    _client = _Speaking(client ?? http.Client(), () => language);
+  Api(this.base, {this.password = '', http.Client? client}) {
+    _client = _Speaking(client ?? http.Client(), () => language, () => headers);
   }
+
+  /// 서버에 SOLO_PASSWORD 가 걸려 있을 때 쓰는 비밀번호입니다. 웹은 브라우저가 대신 들고 있어 비워 둡니다.
+  final String password;
+
+  /// 오디오와 표지 요청에도 같은 인증을 붙입니다. 서버는 사용자 이름을 보지 않습니다.
+  Map<String, String> get headers => password.isEmpty
+      ? const {}
+      : {
+          'authorization':
+              'Basic ${base64Encode(utf8.encode('solo:$password'))}',
+        };
 
   /// 서버 문구를 받을 언어입니다. 화면이 기기 언어를 정한 뒤 맞춰 둡니다.
   String language = 'en';
-
-  factory Api.fromEnvironment() {
-    const configured = String.fromEnvironment('SOLO_SERVER');
-    if (configured.isNotEmpty) return Api(Uri.parse(configured));
-    if (kIsWeb) return Api(Uri.parse(Uri.base.origin));
-    return Api(Uri.parse('http://127.0.0.1:38550'));
-  }
 
   final Uri base;
   late final http.Client _client;
@@ -152,6 +172,18 @@ class Api {
 
   Uri audioUri(String id) => _at('/api/audio/${Uri.encodeComponent(id)}');
   Uri coverUri(String id) => _at('/api/cover/${Uri.encodeComponent(id)}');
+  Uri get apkUri => _at('/solo.apk');
+
+  /// 서버에 안드로이드 앱이 있으면 버전과 크기를, 없으면 null 을 돌려줍니다.
+  Future<AppBuild?> androidBuild() async {
+    final res = await _client.get(_at('/api/app'));
+    if (res.statusCode != 200) {
+      throw ApiException(ApiFail.app, status: res.statusCode);
+    }
+    final android = (jsonDecode(res.body) as Map<String, dynamic>)['android'];
+    return android is Map<String, dynamic> ? AppBuild.fromJson(android) : null;
+  }
+
   Uri downloadUri(String id) => _at('/api/download/${Uri.encodeComponent(id)}');
 
   Future<List<Track>> tracks() async {
@@ -270,13 +302,15 @@ class Api {
 
 /// 모든 요청에 화면 언어를 실어 보냅니다. 서버가 실패 사유를 그 언어로 답합니다.
 class _Speaking extends http.BaseClient {
-  _Speaking(this._inner, this._language);
+  _Speaking(this._inner, this._language, this._auth);
   final http.Client _inner;
   final String Function() _language;
+  final Map<String, String> Function() _auth;
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) {
     request.headers['accept-language'] = _language();
+    request.headers.addAll(_auth());
     return _inner.send(request);
   }
 
