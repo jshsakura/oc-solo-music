@@ -152,7 +152,8 @@ async def peek(job: dict) -> None:
     except Exception:
         return
     if job["status"] in ACTIVE:
-        persist(job, title=job["title"] or info["title"], cover=info["cover"])
+        extra = {"duration": info["duration"]} if info.get("duration") else {}
+        persist(job, title=job["title"] or info["title"], cover=info["cover"], **extra)
 
 
 def enqueue(kind: str, key: str, title: str = "", **extra) -> bool:

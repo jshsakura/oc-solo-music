@@ -279,7 +279,7 @@ class _ShelfRecordState extends State<_ShelfRecord> {
           AnimatedPositioned(
             duration: still ? Duration.zero : const Duration(milliseconds: 260),
             curve: Curves.easeOutBack,
-            left: (size - disc) / 2 + size * .07,
+            left: (size - disc) / 2,
             top: size * _peekPressed - peek,
             width: disc,
             height: disc,
