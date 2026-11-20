@@ -39,6 +39,13 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          # Maven Central 이 러너에 429 를 돌려줄 때가 있어 받은 의존성을 실행 사이에 남겨 둡니다.
+          cache: gradle
+          cache-dependency-path: |
+            client/android/*.gradle*
+            client/android/app/*.gradle*
+            client/android/gradle/wrapper/gradle-wrapper.properties
+            client/pubspec.lock
       - name: Build signed APK
         env:
           KEYSTORE_B64: ${{ secrets.SOLO_KEYSTORE_B64 }}
