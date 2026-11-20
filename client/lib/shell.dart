@@ -99,7 +99,7 @@ class _ShellState extends State<Shell> {
   }
 
   Widget _screen(AppTab tab) => switch (tab) {
-    AppTab.player => PlayerScreen(ctl: _ctl),
+    AppTab.player => PlayerScreen(ctl: _ctl, loading: _loading),
     AppTab.library => ListenableBuilder(
       listenable: _ctl,
       builder: (_, _) => LibraryScreen(
@@ -200,7 +200,7 @@ class _ShellState extends State<Shell> {
               decoration: const BoxDecoration(
                 border: Border(left: BorderSide(color: Palette.line)),
               ),
-              child: PlayerScreen(ctl: _ctl),
+              child: PlayerScreen(ctl: _ctl, loading: _loading),
             ),
         ],
       ),

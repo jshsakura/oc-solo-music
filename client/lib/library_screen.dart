@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'api.dart';
 import 'theme.dart';
 import 'widgets/motion.dart';
+import 'widgets/skeleton.dart';
 import 'widgets/sleeve.dart';
 import 'l10n.dart';
 
@@ -64,6 +65,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
         .where((t) => _inCrate(t, _crate))
         .toList(growable: false);
     final likes = widget.tracks.where((t) => t.liked).length;
+    final waiting = widget.loading && widget.tracks.isEmpty;
+    const countStyle = TextStyle(fontSize: 13, color: Palette.faint);
     return SafeArea(
       bottom: false,
       child: Column(
@@ -82,10 +85,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Text(
-              S.of(context).libraryCount(widget.tracks.length, likes),
-              style: const TextStyle(fontSize: 13, color: Palette.faint),
-            ),
+            child: waiting
+                ? const Skeleton(
+                    label: false,
+                    child: TextBone(style: countStyle, width: 110),
+                  )
+                : Text(
+                    S.of(context).libraryCount(widget.tracks.length, likes),
+                    style: countStyle,
+                  ),
           ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -134,18 +142,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ],
             ),
           ),
-          Expanded(child: _body(shown)),
+          Expanded(
+            child: LoadSwitch(
+              loading: waiting,
+              skeleton: const _ListSkeleton(),
+              child: _body(shown),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _body(List<Track> shown) {
-    if (widget.loading && widget.tracks.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Palette.ink, strokeWidth: 2),
-      );
-    }
     if (widget.error != null && widget.tracks.isEmpty) {
       return Center(
         child: Column(
@@ -279,6 +288,61 @@ class _LibraryScreenState extends State<LibraryScreen> {
       },
     );
   }
+}
+
+/// 곡 목록을 받는 동안의 보관함 줄입니다. 표지 자리와 글 막대 두 줄로, 실제 줄과 높이가 같습니다.
+class _ListSkeleton extends StatelessWidget {
+  const _ListSkeleton();
+
+  static const _rows = 9;
+  static const _titleWidths = [.62, .48, .7, .55, .4, .66, .5, .58, .45];
+
+  @override
+  Widget build(BuildContext context) => Skeleton(
+    key: const Key('library-skeleton'),
+    child: LayoutBuilder(
+      builder: (context, box) {
+        final text = box.maxWidth - 40 - 66 - 14 - 22;
+        return ListView.separated(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          itemCount: _rows,
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, color: Palette.sunk),
+          itemBuilder: (_, i) => SizedBox(
+            height: 72,
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 66,
+                  height: 56,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Bone(width: 56, height: 56, radius: 8),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextBone(
+                      style: const TextStyle(fontSize: 15),
+                      width: text * _titleWidths[i],
+                    ),
+                    TextBone(
+                      style: const TextStyle(fontSize: 12),
+                      width: text * _titleWidths[i] * .6,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 /// 지금 곡 표지 뒤로 삐져나온 판입니다. 재생 중이면 홈과 빛줄기가 보이게 천천히 돕니다.

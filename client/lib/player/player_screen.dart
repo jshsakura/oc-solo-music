@@ -8,11 +8,15 @@ import '../widgets/marquee.dart';
 import 'turntable.dart';
 import '../l10n.dart';
 import '../widgets/motion.dart';
+import '../widgets/skeleton.dart';
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key, required this.ctl});
+  const PlayerScreen({super.key, required this.ctl, this.loading = false});
 
   final PlayerController ctl;
+
+  /// 보관함 목록을 받는 중입니다. 아직 올릴 곡이 없으면 제목 자리에 막대를 둡니다.
+  final bool loading;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -49,6 +53,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
       builder: (context, _) {
         final c = widget.ctl;
         final track = c.current;
+        final waiting = widget.loading && track == null;
         // 지금 판의 슬리브 색이 위에서 은은하게 번집니다. 판이 바뀌면 천천히 다음 색으로 넘어갑니다.
         final tint = track == null
             ? Palette.ground
@@ -81,6 +86,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 // 높이가 짧은 기기(가로 화면, 작은 폰)에서는 틈과 표지를 줄이고 턴테이블이 남는 높이에 맞춰 작아집니다.
                 final compact = box.maxHeight < 640;
                 final gap = compact ? 8.0 : 16.0;
+                final titleStyle = TextStyle(
+                  fontSize: compact ? 19 : 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.2,
+                  color: Palette.ink,
+                );
+                const artistStyle = TextStyle(
+                  fontSize: 14,
+                  color: Palette.secondary,
+                );
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -144,22 +159,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               ),
                             ),
                             SizedBox(height: gap + 4),
-                            Marquee(
-                              track?.title ?? S.of(context).noTrack,
-                              style: TextStyle(
-                                fontSize: compact ? 19 : 22,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.2,
-                                color: Palette.ink,
+                            LoadSwitch(
+                              loading: waiting,
+                              alignment: Alignment.topLeft,
+                              skeleton: _TitleSkeleton(
+                                titleStyle: titleStyle,
+                                artistStyle: artistStyle,
                               ),
-                            ),
-                            Text(
-                              track?.artist ?? S.of(context).pickFromLibrary,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Palette.secondary,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Marquee(
+                                    track?.title ?? S.of(context).noTrack,
+                                    style: titleStyle,
+                                  ),
+                                  Text(
+                                    track?.artist ??
+                                        S.of(context).pickFromLibrary,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: artistStyle,
+                                  ),
+                                ],
                               ),
                             ),
                             SizedBox(height: gap),
@@ -188,6 +209,26 @@ class _PlayerScreenState extends State<PlayerScreen> {
       },
     );
   }
+}
+
+/// 첫 곡이 올라오기 전의 제목과 이름 자리입니다. 같은 글꼴 높이라 곡이 들어와도 아래가 움직이지 않습니다.
+class _TitleSkeleton extends StatelessWidget {
+  const _TitleSkeleton({required this.titleStyle, required this.artistStyle});
+
+  final TextStyle titleStyle;
+  final TextStyle artistStyle;
+
+  @override
+  Widget build(BuildContext context) => Skeleton(
+    key: const Key('player-skeleton'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextBone(style: titleStyle, width: 190),
+        TextBone(style: artistStyle, width: 110),
+      ],
+    ),
+  );
 }
 
 class _SeekBar extends StatelessWidget {

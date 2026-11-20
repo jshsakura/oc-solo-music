@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
+import '../widgets/skeleton.dart';
 import 'crate_math.dart';
 import 'crate_stage.dart';
 import 'shelf_grid.dart';
@@ -69,6 +70,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   List<Track> get _shown => crateTracks(widget.tracks, _crate);
   bool get _still => MediaQuery.disableAnimationsOf(context);
+
+  /// 처음 곡 목록을 받는 중입니다. 다시 받을 때는 있던 판을 그대로 둡니다.
+  bool get _waiting => widget.loading && widget.tracks.isEmpty;
 
   @override
   void initState() {
@@ -225,21 +229,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    AnimatedBuilder(
-                      animation: _pos,
-                      builder: (_, _) => Text(
-                        shown.isEmpty
-                            ? '0'
-                            : _view == HomeView.shelf
-                            ? '${shown.length}'
-                            : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Palette.faint,
-                          fontFeatures: [FontFeature.tabularFigures()],
+                    if (_waiting)
+                      const Skeleton(
+                        label: false,
+                        child: TextBone(
+                          style: TextStyle(fontSize: 12),
+                          width: 34,
+                        ),
+                      )
+                    else
+                      AnimatedBuilder(
+                        animation: _pos,
+                        builder: (_, _) => Text(
+                          shown.isEmpty
+                              ? '0'
+                              : _view == HomeView.shelf
+                              ? '${shown.length}'
+                              : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Palette.faint,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(width: 10),
                     _ViewToggle(
                       view: _view,
@@ -297,12 +310,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _stage(S s, List<Track> shown) {
-    if (widget.loading && widget.tracks.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Palette.ink, strokeWidth: 2),
-      );
-    }
+  /// 곡 목록을 받는 동안은 지금 보기와 같은 모양의 빈 자리를 두고, 받으면 그 위로 판이 들어옵니다.
+  Widget _stage(S s, List<Track> shown) => LoadSwitch(
+    loading: _waiting,
+    skeleton: _view == HomeView.shelf
+        ? const ShelfSkeleton()
+        : Skeleton(
+            key: const Key('home-stage-skeleton'),
+            child: _fitStage(
+              CrateStage(
+                api: widget.api,
+                tracks: const [],
+                position: 0,
+                pulled: 0,
+                isOut: false,
+                hint: '',
+                loadLabel: s.homeLoad,
+                loadSemantics: s.homeLoadLabel,
+                onLoad: () {},
+                skeleton: true,
+              ),
+            ),
+          ),
+    child: _loaded(s, shown),
+  );
+
+  Widget _fitStage(Widget stage) => Align(
+    alignment: Alignment.topCenter,
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.topCenter,
+      child: stage,
+    ),
+  );
+
+  Widget _loaded(S s, List<Track> shown) {
     final message = widget.tracks.isEmpty
         ? s.homeEmpty
         : shown.isEmpty
@@ -336,25 +378,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onVerticalDragStart: _dragStarted,
       onVerticalDragUpdate: _dragged,
       onVerticalDragEnd: _dragEnded,
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.topCenter,
-          child: AnimatedBuilder(
-            animation: Listenable.merge([_pos, _pull]),
-            builder: (_, _) => CrateStage(
-              api: widget.api,
-              tracks: shown,
-              position: _pos.value,
-              pulled: _pull.value,
-              isOut: _out,
-              hint: _out ? s.homeHintOut : s.homeHint,
-              loadLabel: s.homeLoad,
-              loadSemantics: s.homeLoadLabel,
-              onLoad: _load,
-              message: message,
-            ),
+      child: _fitStage(
+        AnimatedBuilder(
+          animation: Listenable.merge([_pos, _pull]),
+          builder: (_, _) => CrateStage(
+            api: widget.api,
+            tracks: shown,
+            position: _pos.value,
+            pulled: _pull.value,
+            isOut: _out,
+            hint: _out ? s.homeHintOut : s.homeHint,
+            loadLabel: s.homeLoad,
+            loadSemantics: s.homeLoadLabel,
+            onLoad: _load,
+            message: message,
           ),
         ),
       ),

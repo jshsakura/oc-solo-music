@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import 'api.dart';
+import 'boot/ready.dart';
 import 'connect/server_store.dart';
 import 'connect/setup_screen.dart';
 import 'l10n.dart';
@@ -22,6 +24,22 @@ Future<void> main() async {
     );
   }
   runApp(SoloApp(api: await _startingApi()));
+  if (kIsWeb) _liftSplashWhenFontsArrive();
+}
+
+/// 웹은 글꼴을 받기 전의 첫 화면이 빈 네모로 보입니다. 첫 화면이 부른 글꼴이 다 오면 시작 화면을 걷습니다.
+/// 글꼴이 늦어도 시작 화면이 남아 있지 않게 오래 기다리지 않습니다.
+void _liftSplashWhenFontsArrive() {
+  final binding = WidgetsBinding.instance;
+  binding.addPostFrameCallback((_) async {
+    try {
+      await GoogleFonts.pendingFonts().timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // 글꼴을 못 받아도 앱은 기본 글꼴로 씁니다.
+    }
+    binding.addPostFrameCallback((_) => markReady());
+    binding.scheduleFrame();
+  });
 }
 
 /// 웹은 자기를 내려준 서버를, 앱은 기억해 둔 서버를 씁니다. 앱이 처음이면 null 이라 주소부터 받습니다.

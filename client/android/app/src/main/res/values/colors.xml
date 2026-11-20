@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱 바탕색과 같습니다. 엔진이 첫 화면을 그리기 전에도 같은 색이 보입니다. -->
+    <color name="solo_ground">#F2F1EE</color>
+</resources>

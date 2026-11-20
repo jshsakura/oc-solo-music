@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../theme.dart';
+import 'skeleton.dart';
 
 /// 판 표지입니다. 서버에 표지가 있으면 그 그림을, 없으면 색 바탕에 첫 글자를 씁니다.
 class Sleeve extends StatelessWidget {
@@ -39,11 +40,10 @@ class Sleeve extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: track.hasCover
-          ? Image.network(
-              api.coverUri(track.id).toString(),
+          ? CoverImage(
+              url: api.coverUri(track.id).toString(),
               headers: api.headers,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => fallback,
+              fallback: fallback,
             )
           : fallback,
     );

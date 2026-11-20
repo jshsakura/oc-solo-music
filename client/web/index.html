@@ -7,10 +7,10 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f2f1ee">
-  <meta name="description" content="Record your Suno songs, save YouTube tracks as mp3, and spin them on a turntable.">
+  <meta name="description" content="Record your own Suno songs, upload your own song files, and spin them on a turntable.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Solo">
-  <meta property="og:description" content="Your own record shelf. Record your Suno songs, save YouTube tracks as mp3, and spin them on a turntable.">
+  <meta property="og:description" content="Your own record shelf. Record your own Suno songs, upload your own song files, and spin them on a turntable.">
   <meta property="og:image" content="__SOLO_ORIGIN__/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,8 +28,58 @@
 
   <title>Solo</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Flutter 가 첫 화면을 그리기 전까지 보이는 시작 화면입니다. */
+    html, body { margin: 0; background: #f2f1ee; }
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+      background: #f2f1ee;
+      transition: opacity .32s ease, visibility .32s ease;
+    }
+    #splash.gone { opacity: 0; visibility: hidden; }
+    #splash .disc {
+      position: relative; width: 92px; height: 92px; border-radius: 50%;
+      background:
+        radial-gradient(circle, #16161A 0 4px, #FFC23D 4.5px 25px, transparent 25.5px),
+        repeating-radial-gradient(circle, #16161A 0 3px, #22222a 3.5px 4px);
+      box-shadow: 0 10px 24px -8px rgba(22, 22, 26, .35);
+      animation: solo-spin 1.8s linear infinite;
+    }
+    #splash .disc::after {
+      content: ""; position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(from -20deg, transparent 0 4%, rgba(255,255,255,.2) 9%, transparent 16% 50%, rgba(255,255,255,.14) 58%, transparent 66%);
+    }
+    #splash .mark {
+      font: 800 34px/1 ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif;
+      color: #16161A; letter-spacing: -.5px;
+    }
+    #splash .mark b { color: #FFC23D; font-weight: 800; }
+    @keyframes solo-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      #splash { transition: none; }
+      #splash .disc { animation: none; }
+    }
+  </style>
 </head>
 <body style="background:#f2f1ee">
+  <div id="splash" role="status" aria-label="Solo">
+    <div class="disc"></div>
+    <div class="mark">solo<b>.</b></div>
+  </div>
+  <script>
+    // 앱이 첫 화면과 글꼴을 다 그리면 soloReady 를 불러 시작 화면을 천천히 걷어 냅니다.
+    // 앱이 부르지 못해도 첫 화면 뒤 5초가 지나면 걷습니다.
+    window.soloReady = function () {
+      var el = document.getElementById('splash');
+      if (!el || el.classList.contains('gone')) return;
+      el.classList.add('gone');
+      setTimeout(function () { el.remove(); }, 400);
+    };
+    window.addEventListener('flutter-first-frame', function () {
+      setTimeout(window.soloReady, 5000);
+    }, { once: true });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

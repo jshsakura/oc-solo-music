@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
+import '../widgets/skeleton.dart';
 import 'deck.dart';
 import 'jobs_watch.dart';
 
@@ -164,20 +165,20 @@ class _AddScreenState extends State<AddScreen> {
                 waiting: w.waiting,
                 onCancel: () => w.running == null ? null : w.cancel(w.running!),
               ),
-              if (history.isNotEmpty) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 22, 4, 8),
-                  child: Text(
-                    S.of(context).history,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                for (final j in history)
-                  _JobRow(job: j, onCancel: () => w.cancel(j)),
-              ],
+              LoadSwitch(
+                loading: !w.loaded,
+                skeleton: const _HistorySkeleton(),
+                child: history.isEmpty
+                    ? const SizedBox(width: double.infinity)
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const _HistoryTitle(),
+                          for (final j in history)
+                            _JobRow(job: j, onCancel: () => w.cancel(j)),
+                        ],
+                      ),
+              ),
             ],
           );
         },
@@ -337,6 +338,75 @@ class _UploadCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _HistoryTitle extends StatelessWidget {
+  const _HistoryTitle();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 22, 4, 8),
+    child: Text(
+      S.of(context).history,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+    ),
+  );
+}
+
+/// 작업 기록을 처음 받는 동안의 자리입니다. [_JobRow] 와 같은 카드 모양입니다.
+class _HistorySkeleton extends StatelessWidget {
+  const _HistorySkeleton();
+
+  static const _widths = [.7, .52, .62];
+
+  @override
+  Widget build(BuildContext context) => Column(
+    key: const Key('history-skeleton'),
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const _HistoryTitle(),
+      Skeleton(
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final text = box.maxWidth - 14 - 8 - 18 - 10;
+            return Column(
+              children: [
+                for (final f in _widths)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
+                    decoration: BoxDecoration(
+                      color: Palette.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Palette.line),
+                    ),
+                    child: Row(
+                      children: [
+                        const Bone(width: 18, height: 18, circle: true),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextBone(
+                              style: const TextStyle(fontSize: 14),
+                              width: text * f,
+                            ),
+                            TextBone(
+                              style: const TextStyle(fontSize: 12),
+                              width: text * f * .55,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    ],
+  );
 }
 
 class _JobRow extends StatelessWidget {

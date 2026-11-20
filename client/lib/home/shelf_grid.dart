@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../api.dart';
 import '../theme.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/sleeve.dart';
 import 'crate_parts.dart';
 
@@ -113,6 +114,74 @@ class _ShelfGridState extends State<ShelfGrid>
         ),
       );
     },
+  );
+}
+
+/// 곡 목록을 받는 동안의 책장입니다. 같은 칸과 선반에 빈 표지와 글 막대를 세워 둡니다.
+class ShelfSkeleton extends StatelessWidget {
+  const ShelfSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final columns = shelfColumns(box.maxWidth);
+      final cell = (box.maxWidth - _side * 2 - _gap * (columns - 1)) / columns;
+      // 화면 높이를 다 채울 만큼만 줄을 세웁니다.
+      final rowHeight = cell * (1 + _peekPressed) + 72;
+      final rows = box.maxHeight.isFinite
+          ? (box.maxHeight / rowHeight).ceil().clamp(1, 6)
+          : 3;
+      return Skeleton(
+        key: const Key('home-shelf-skeleton'),
+        child: ListView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(_side, 14, _side, 40),
+          itemCount: rows,
+          itemBuilder: (_, row) => _ShelfRow(
+            cell: cell,
+            columns: columns,
+            children: [
+              for (var c = 0; c < columns; c++) _RecordBone(size: cell),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// 선반에 세운 판 하나의 자리입니다. [_ShelfRecord] 와 크기가 같습니다.
+class _RecordBone extends StatelessWidget {
+  const _RecordBone({required this.size});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: size,
+        height: size * (1 + _peekPressed),
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: Bone(width: size, height: size),
+        ),
+      ),
+      const SizedBox(height: ShelfPlank.height + 10),
+      TextBone(
+        style: const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+          height: 1.3,
+        ),
+        width: size * .72,
+      ),
+      const SizedBox(height: 2),
+      TextBone(
+        style: const TextStyle(fontSize: 12, height: 1.3),
+        width: size * .44,
+      ),
+    ],
   );
 }
 

@@ -9,6 +9,7 @@ import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
 import '../widgets/motion.dart';
+import '../widgets/skeleton.dart';
 import 'pair_dialog.dart';
 
 /// 연결 탭입니다. 계정, 짝지은 기기, 앱 받기, 유튜브 계정, (앱에서는) 붙어 있는 서버를 한곳에서 다룹니다.
@@ -28,6 +29,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
   Me? _me;
   List<Device>? _devices;
   AppBuild? _android;
+
+  /// 처음 계정과 기기 목록을 물어본 답이 왔는지입니다.
+  bool _loaded = false;
 
   @override
   void initState() {
@@ -55,6 +59,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       _me = me;
       _devices = results[0] as List<Device>?;
       _android = results[1] as AppBuild?;
+      _loaded = true;
     });
   }
 
@@ -126,87 +131,99 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     letterSpacing: -0.5,
                   ),
                 ),
-                if (me != null && me.email.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    s.signedInAs(me.email),
-                    style: const TextStyle(fontSize: 13, color: Palette.faint),
-                  ),
-                ],
-                if (_devices != null) ...[
-                  _Header(
-                    s.devicesTitle,
-                    note: s.devicesNote,
-                    action: s.deviceAdd,
-                    onAction: _pair,
-                  ),
-                  _Group(
+                LoadSwitch(
+                  loading: !_loaded,
+                  skeleton: const _ConnectSkeleton(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (_devices!.isEmpty)
-                        _Row(
-                          icon: Icons.qr_code_2_rounded,
-                          title: s.devicesNone,
-                          sub: s.pairScanHint,
-                        ),
-                      for (final d in _devices!)
-                        _Row(
-                          icon: _deviceIcon(d.platform),
-                          title: d.name,
-                          sub: _seen(s, d.lastSeen),
-                          trailing: _IconButton(
-                            icon: Icons.link_off_rounded,
-                            label: s.deviceRemove,
-                            onTap: () => _remove(d),
+                      if (me != null && me.email.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          s.signedInAs(me.email),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Palette.faint,
                           ),
                         ),
-                    ],
-                  ),
-                ],
-                if (_android != null) ...[
-                  _Header(s.appSection),
-                  _Group(
-                    children: [
-                      _Row(
-                        icon: Icons.android_rounded,
-                        title: s.androidApp,
-                        sub: [
-                          s.androidAppNote,
-                          if (_android!.version.isNotEmpty)
-                            s.androidBuild(
-                              _android!.version,
-                              _android!.sizeLabel,
+                      ],
+                      if (_devices != null) ...[
+                        _Header(
+                          s.devicesTitle,
+                          note: s.devicesNote,
+                          action: s.deviceAdd,
+                          onAction: _pair,
+                        ),
+                        _Group(
+                          children: [
+                            if (_devices!.isEmpty)
+                              _Row(
+                                icon: Icons.qr_code_2_rounded,
+                                title: s.devicesNone,
+                                sub: s.pairScanHint,
+                              ),
+                            for (final d in _devices!)
+                              _Row(
+                                icon: _deviceIcon(d.platform),
+                                title: d.name,
+                                sub: _seen(s, d.lastSeen),
+                                trailing: _IconButton(
+                                  icon: Icons.link_off_rounded,
+                                  label: s.deviceRemove,
+                                  onTap: () => _remove(d),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      if (_android != null) ...[
+                        _Header(s.appSection),
+                        _Group(
+                          children: [
+                            _Row(
+                              icon: Icons.android_rounded,
+                              title: s.androidApp,
+                              sub: [
+                                s.androidAppNote,
+                                if (_android!.version.isNotEmpty)
+                                  s.androidBuild(
+                                    _android!.version,
+                                    _android!.sizeLabel,
+                                  ),
+                              ].join('\n'),
+                              trailing: _IconButton(
+                                icon: Icons.download_rounded,
+                                label: s.androidGet,
+                                filled: true,
+                                onTap: () => launchUrl(
+                                  widget.api.apkUri,
+                                  webOnlyWindowName: '_self',
+                                ),
+                              ),
                             ),
-                        ].join('\n'),
-                        trailing: _IconButton(
-                          icon: Icons.download_rounded,
-                          label: s.androidGet,
-                          filled: true,
-                          onTap: () => launchUrl(
-                            widget.api.apkUri,
-                            webOnlyWindowName: '_self',
-                          ),
+                          ],
                         ),
-                      ),
+                      ],
+                      if (widget.onChangeServer != null) ...[
+                        _Header(s.serverSection),
+                        _Group(
+                          children: [
+                            _Row(
+                              icon: Icons.dns_rounded,
+                              title: s.serverNow,
+                              sub: widget.api.base.toString(),
+                              trailing: _IconButton(
+                                icon: Icons.swap_horiz_rounded,
+                                label: s.serverChange,
+                                onTap: widget.onChangeServer!,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                ],
-                if (widget.onChangeServer != null) ...[
-                  _Header(s.serverSection),
-                  _Group(
-                    children: [
-                      _Row(
-                        icon: Icons.dns_rounded,
-                        title: s.serverNow,
-                        sub: widget.api.base.toString(),
-                        trailing: _IconButton(
-                          icon: Icons.swap_horiz_rounded,
-                          label: s.serverChange,
-                          onTap: widget.onChangeServer!,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
                 const SizedBox(height: 18),
                 Text(
                   s.ownMusicNote,
@@ -226,6 +243,71 @@ class _ConnectScreenState extends State<ConnectScreen> {
     'macOS' || 'windows' || 'linux' => Icons.laptop_rounded,
     _ => Icons.devices_other_rounded,
   };
+}
+
+/// 계정과 기기 목록을 처음 받는 동안의 자리입니다. 이메일 한 줄과 기기 묶음 하나를 같은 모양으로 둡니다.
+class _ConnectSkeleton extends StatelessWidget {
+  const _ConnectSkeleton();
+
+  static Widget _row(double title, double sub) => Padding(
+    padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+    child: Row(
+      children: [
+        const Bone(width: 40, height: 40, radius: 12),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextBone(style: const TextStyle(fontSize: 15), width: title),
+              TextBone(style: const TextStyle(fontSize: 12), width: sub),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Bone(width: 44, height: 44, circle: true),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => Skeleton(
+    key: const Key('connect-skeleton'),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 4),
+        const TextBone(style: TextStyle(fontSize: 13), width: 180),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(4, 24, 0, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextBone(
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                width: 90,
+              ),
+              TextBone(style: TextStyle(fontSize: 12), width: 220),
+            ],
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Palette.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Palette.line),
+          ),
+          child: Column(
+            children: [
+              _row(120, 80),
+              const Divider(height: 1, color: Palette.sunk),
+              _row(150, 70),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _Header extends StatelessWidget {
