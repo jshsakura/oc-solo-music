@@ -62,9 +62,7 @@ class _DeckState extends State<Deck> with SingleTickerProviderStateMixin {
     final s = S.of(context);
     final status = job == null
         ? (widget.waiting > 0 ? s.preparingNext : s.idle)
-        : (job.kind == 'youtube' ? s.downloadingPct : s.recordingPct)(
-            (p * 100).round(),
-          );
+        : s.recordingPct((p * 100).round());
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(

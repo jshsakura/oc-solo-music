@@ -73,7 +73,7 @@ class Job {
     progress: ((json['progress'] as num?) ?? 0).toDouble(),
   );
 
-  static const active = {'queued', 'recording', 'downloading'};
+  static const active = {'queued', 'recording'};
 
   final String id;
   final String kind;
@@ -84,22 +84,8 @@ class Job {
   final double progress;
 
   bool get isActive => active.contains(status);
-  bool get isRunning => status == 'recording' || status == 'downloading';
+  bool get isRunning => status == 'recording';
   String get label => title.isNotEmpty ? title : url;
-}
-
-/// 유튜브 검색 결과 한 곡입니다. 받기를 누르면 이 모양 그대로 서버에 돌려줍니다.
-@immutable
-class Found {
-  const Found(this.raw);
-  final Map<String, dynamic> raw;
-
-  String get videoId => raw['videoId'] as String;
-  String get title => (raw['title'] as String?) ?? '';
-  String get artist => (raw['artist'] as String?) ?? '';
-  String get art => (raw['art'] as String?) ?? '';
-  double get duration => ((raw['duration'] as num?) ?? 0).toDouble();
-  bool get owned => raw['owned'] == true;
 }
 
 /// 어떤 요청이 실패했는지입니다. 화면 문구는 [S.apiFail] 이 언어별로 만듭니다.
@@ -107,14 +93,12 @@ enum ApiFail {
   tracks,
   like,
   add,
-  search,
-  get,
+  upload,
   jobs,
   cancel,
   remove,
   restore,
   archive,
-  youtubeStatus,
   app,
   me,
   pair,
@@ -306,7 +290,7 @@ class Api {
 
   static const _jsonHeaders = {'content-type': 'application/json'};
 
-  /// 수노·유튜브 주소를 대기열에 넣고, 새로 들어간 작업 수를 돌려줍니다.
+  /// 내가 만든 수노 곡 주소를 대기열에 넣고, 새로 들어간 작업 수를 돌려줍니다.
   Future<int> add(List<String> urls) async {
     final body = await _json(
       _client.post(
@@ -319,27 +303,17 @@ class Api {
     return ((body as Map)['queued'] as num?)?.toInt() ?? 0;
   }
 
-  Future<List<Found>> search(String query) async {
+  /// 가진 곡 파일 하나를 올립니다. 새로 담았으면 true, 이미 있던 파일이면 false 입니다.
+  Future<bool> upload(String name, List<int> bytes) async {
     final body = await _json(
-      _client.get(_at('/api/search').replace(queryParameters: {'q': query})),
-      ApiFail.search,
-    );
-    final tracks = (body as Map)['tracks'];
-    return tracks is List
-        ? tracks.whereType<Map<String, dynamic>>().map(Found.new).toList()
-        : const [];
-  }
-
-  Future<int> get(Found track) async {
-    final body = await _json(
-      _client.post(
-        _at('/api/youtube/get'),
-        headers: _jsonHeaders,
-        body: jsonEncode(track.raw),
+      _client.put(
+        _at('/api/upload').replace(queryParameters: {'name': name}),
+        headers: {'content-type': 'application/octet-stream'},
+        body: bytes,
       ),
-      ApiFail.get,
+      ApiFail.upload,
     );
-    return ((body as Map)['queued'] as num?)?.toInt() ?? 0;
+    return (body as Map)['added'] == true;
   }
 
   Future<List<Job>> jobs() async {
@@ -412,14 +386,6 @@ class Api {
     _client.delete(_at('/api/devices/${Uri.encodeComponent(id)}')),
     ApiFail.devices,
   );
-
-  Future<bool> youtubeLoggedIn() async {
-    final body = await _json(
-      _client.get(_at('/api/youtube/status')),
-      ApiFail.youtubeStatus,
-    );
-    return (body as Map)['loggedIn'] == true;
-  }
 }
 
 /// 모든 요청에 화면 언어를 실어 보냅니다. 서버가 실패 사유를 그 언어로 답합니다.

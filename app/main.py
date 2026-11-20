@@ -1,4 +1,4 @@
-"""수노 곡을 녹음해 쌓고, 폰에서 화면을 꺼도 재생되게 내려주는 서버."""
+"""내가 만든 수노 곡을 녹음하거나 가진 곡 파일을 올려 쌓고, 폰에서 화면을 꺼도 재생되게 내려주는 서버."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import auth, library, messages, youtube
+from . import auth, library, messages, upload
 from .messages import msg
 from .serving import ranged_file
 
@@ -46,13 +46,13 @@ RESULT_LINE = re.compile(r"^\[(\w+)\] (.+?): (.*)$")
 PROGRESS_LINE = re.compile(r"^\[progress\] (\d+(?:\.\d+)?)$")
 MAX_JOBS_KEPT = 30
 
-YOUTUBE_GAP_SECONDS = 3  # 유튜브에 연달아 요청하지 않도록 곡 사이에 쉽니다
-ACTIVE = ("queued", "recording", "downloading")
+ACTIVE = ("queued", "recording")
+UPLOAD_MAX = 300 * 1024 * 1024  # 올리는 파일 하나의 상한입니다
 
 jobs: list[dict] = []
-# 수노 녹음은 곡 길이만큼 걸리므로 유튜브 받기와 대기열을 나눕니다. 각자 한 곡씩 처리합니다.
+# 수노 녹음은 곡 길이만큼 걸려서 한 곡씩 차례로 처리합니다.
 queues: dict[str, asyncio.Queue[dict]] = {}
-running: dict[str, asyncio.subprocess.Process] = {}  # 진행 중인 작업 id → 녹음기나 다운로더 프로세스
+running: dict[str, asyncio.subprocess.Process] = {}  # 진행 중인 작업 id → 녹음기 프로세스
 
 
 def track_json(row: sqlite3.Row) -> dict:
@@ -84,15 +84,13 @@ def find_track_file(track_id: str) -> Path:
 
 
 def job_command(job: dict) -> list[str]:
-    if job["kind"] == "youtube":
-        return ["app.youtube_get", json.dumps(job["track"], ensure_ascii=False), "-o", str(LIB)]
     return ["app.suno_record", job["url"], "-o", str(LIB), "--codes"]
 
 
 async def record(job: dict) -> None:
-    """녹음기나 다운로더를 따로 띄웁니다. 곡 정보와 표지는 그쪽이 solo.db 와 폴더에 직접 남깁니다.
+    """녹음기를 따로 띄웁니다. 곡 정보와 표지는 그쪽이 solo.db 와 폴더에 직접 남깁니다.
     새 프로세스 그룹으로 띄워서, 취소할 때 녹음기가 띄운 크롬까지 한꺼번에 끕니다."""
-    persist(job, status="downloading" if job["kind"] == "youtube" else "recording", progress=0.0)
+    persist(job, status="recording", progress=0.0)
     process = await asyncio.create_subprocess_exec(
         sys.executable, "-m", *job_command(job),
         stdin=asyncio.subprocess.DEVNULL, cwd=Path(__file__).parent.parent,
@@ -127,8 +125,6 @@ async def worker(kind: str) -> None:
             if job["status"] == "canceled":
                 continue
             await record(job)
-            if kind == "youtube":
-                await asyncio.sleep(YOUTUBE_GAP_SECONDS)
         except Exception as error:
             persist(job, status="failed", detail=f"{type(error).__name__}: {error}"[:300])
         finally:
@@ -155,9 +151,10 @@ def enqueue(kind: str, key: str, title: str = "", **extra) -> bool:
 
 def restore_jobs() -> None:
     """지난 기록을 불러오고, 끝내지 못한 작업은 처음부터 다시 대기열에 넣습니다. 녹음은 이어 붙일 수 없어서입니다."""
-    jobs[:] = library.load_jobs(LIB)[-MAX_JOBS_KEPT:]
+    # 예전 버전이 남긴 유튜브 받기 기록은 더 다루지 않으므로 불러오지 않습니다.
+    jobs[:] = [j for j in library.load_jobs(LIB) if j.get("kind") in queues][-MAX_JOBS_KEPT:]
     for job in jobs:
-        if job["status"] in ACTIVE and job["kind"] in queues:
+        if job["status"] in ACTIVE:
             persist(job, status="queued", progress=0.0)
             queues[job["kind"]].put_nowait(job)
 
@@ -165,11 +162,11 @@ def restore_jobs() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     LIB.mkdir(parents=True, exist_ok=True)
-    queues.update(suno=asyncio.Queue(), youtube=asyncio.Queue())
+    queues.update(suno=asyncio.Queue())
     restore_jobs()
     tasks = [asyncio.create_task(worker(kind)) for kind in queues]
     yield
-    # 서버가 꺼질 때 녹음기와 다운로더도 함께 끕니다. 남겨 두면 다음에 켜질 때 같은 곡을 한 번 더 받습니다.
+    # 서버가 꺼질 때 녹음기도 함께 끕니다. 남겨 두면 다음에 켜질 때 같은 곡을 한 번 더 받습니다.
     for job_id, process in list(running.items()):
         stop_recorder(process, next((j for j in jobs if j["id"] == job_id), None))
     for task in tasks:
@@ -244,107 +241,54 @@ def api_cover(track_id: str):
 
 @app.post("/api/add")
 async def api_add(body: AddRequest) -> dict:
-    """수노 주소는 녹음하고, 유튜브 주소는 곡 목록으로 펴서 받습니다."""
+    """내가 만든 수노 곡 주소를 녹음 대기열에 넣습니다."""
     urls = list(dict.fromkeys(u.strip() for u in body.urls if u.strip()))
-    bad = [u for u in urls if not (SUNO_URL.fullmatch(u) or youtube.YOUTUBE_URL.fullmatch(u))]
+    bad = [u for u in urls if not SUNO_URL.fullmatch(u)]
     if bad or not urls:
         raise SoloError(400, "add.bad_url", url=bad[0] if bad else "")
-    queued = 0
-    for url in urls:
-        if SUNO_URL.fullmatch(url):
-            queued += enqueue("suno", url, url=url)
-            continue
-        try:
-            tracks = await asyncio.to_thread(youtube.resolve, url, youtube.cookies_path(LIB))
-        except Exception as error:
-            raise SoloError(502, "add.youtube_unreadable", reason=str(error)[:200])
-        if not tracks:
-            raise SoloError(404, "add.nothing_found")
-        queued += sum(add_youtube(t) for t in tracks)
-    return {"queued": queued}
+    return {"queued": sum(enqueue("suno", url, url=url) for url in urls)}
 
 
-def add_youtube(track: dict) -> bool:
-    if library.find_audio(LIB, youtube.track_id(track["videoId"])):
-        return False  # 이미 받은 곡
-    return enqueue("youtube", track["videoId"], track["title"], track=track,
-                   url=f"https://www.youtube.com/watch?v={track['videoId']}")
-
-
-class YoutubeTrack(BaseModel):
-    videoId: str
-    title: str
-    artist: str = ""
-    album: str = ""
-    duration: int | None = None
-    art: str = ""
-
-
-@app.get("/api/search")
-async def api_search(q: str) -> dict:
-    """유튜브에서 곡을 찾습니다. 이미 받은 곡에는 owned 를 붙입니다."""
-    q = q.strip()
-    if not q:
-        return {"music": False, "tracks": []}
+@app.put("/api/upload")
+async def api_upload(request: Request, name: str) -> dict:
+    """내가 만들었거나 산 곡 파일 하나를 몸통 그대로 받아 보관함에 넣습니다. 같은 파일은 한 번만 들어갑니다."""
+    suffix = Path(name).suffix.lower()
+    if suffix not in upload.TYPES:
+        raise SoloError(400, "upload.bad_type", name=Path(name).name[:100])
+    tmp = LIB / f".upload-{secrets.token_hex(6)}{suffix}"
+    digest, size = hashlib.sha256(), 0
     try:
-        found = await asyncio.to_thread(youtube.search, q[:200], youtube.cookies_path(LIB))
-    except Exception as error:
-        raise SoloError(502, "search.failed", reason=str(error)[:200])
-    for t in found["tracks"]:
-        t["owned"] = library.find_audio(LIB, youtube.track_id(t["videoId"])) is not None
-    return found
-
-
-@app.post("/api/youtube/get")
-async def api_youtube_get(track: YoutubeTrack) -> dict:
-    if not youtube.VIDEO_ID.fullmatch(track.videoId):
-        raise SoloError(400, "youtube.bad_id")
-    return {"queued": int(add_youtube(track.model_dump()))}
-
-
-@app.get("/api/youtube/status")
-def api_youtube_status() -> dict:
-    jar = youtube.read_cookies(youtube.cookies_path(LIB))
-    return {"cookies": bool(jar), "loggedIn": youtube.is_logged_in(jar)}
-
-
-@app.put("/api/youtube/cookies")
-async def api_youtube_cookies(request: Request) -> dict:
-    """서브 계정에서 내보낸 cookies.txt 를 받습니다. 유튜브와 구글 쿠키만 남기고 나머지는 버립니다."""
-    body = (await request.body())[:1_000_000].decode(errors="replace")
-    path = youtube.cookies_path(LIB)
-    tmp = path.with_suffix(".tmp")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    kept = [line for line in body.splitlines()
-            if line.removeprefix("#HttpOnly_").split("\t", 1)[0].lstrip(".").endswith(youtube.COOKIE_DOMAINS)
-            and len(line.split("\t")) >= 7]
-    path.parent.chmod(0o700)
-    tmp.touch(mode=0o600)  # 계정 쿠키라 처음부터 나만 읽게 만듭니다
-    tmp.write_text("# Netscape HTTP Cookie File\n" + "\n".join(kept) + "\n")
-    if not youtube.is_logged_in(youtube.read_cookies(tmp)):
-        tmp.unlink()
-        raise SoloError(400, "youtube.no_login_cookie")
-    tmp.replace(path)
-    return api_youtube_status()
-
-
-@app.delete("/api/youtube/cookies")
-def api_youtube_logout() -> dict:
-    youtube.cookies_path(LIB).unlink(missing_ok=True)
-    return api_youtube_status()
+        with tmp.open("wb") as out:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > UPLOAD_MAX:
+                    raise SoloError(413, "upload.too_big", mb=UPLOAD_MAX // 1024 // 1024)
+                digest.update(chunk)
+                out.write(chunk)
+        if size == 0:
+            raise SoloError(400, "upload.not_audio")
+        track_id = "up-" + digest.hexdigest()[:16]
+        if library.find_audio(LIB, track_id):
+            return {"id": track_id, "added": False}
+        try:
+            await asyncio.to_thread(upload.add_file, LIB, tmp, track_id, Path(name).stem)
+        except upload.Rejected as error:
+            raise SoloError(400, error.code)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return {"id": track_id, "added": True}
 
 
 def stop_recorder(process: asyncio.subprocess.Process, job: dict | None) -> None:
-    """녹음기와 녹음기가 띄운 크롬을 함께 끄고, 그 작업이 남긴 임시 폴더만 치웁니다.
-    수노와 유튜브는 각자 한 번에 하나씩만 돌므로 종류별 임시 폴더는 지금 끈 작업의 것입니다."""
+    """녹음기와 녹음기가 띄운 크롬을 함께 끄고, 녹음이 남긴 임시 폴더를 치웁니다.
+    녹음은 한 번에 하나씩만 돌므로 남은 임시 폴더는 지금 끈 작업의 것입니다."""
     try:
         os.killpg(process.pid, signal.SIGKILL)
     except ProcessLookupError:
         pass
     if job is None:
         return
-    leftovers = [LIB / f".yt-{job['key']}"] if job["kind"] == "youtube" else list(LIB.glob(".recording-*"))
-    for leftover in leftovers:
+    for leftover in LIB.glob(".recording-*"):
         shutil.rmtree(leftover, ignore_errors=True)
 
 
@@ -356,7 +300,7 @@ async def api_cancel(job_id: str) -> dict:
         raise SoloError(404, "job.not_found")
     if job["status"] not in ACTIVE:
         raise SoloError(409, "job.already_finished")
-    stopped = msg({"recording": "job.stopped_recording", "downloading": "job.stopped_downloading"}.get(job["status"], "job.dequeued"))
+    stopped = msg("job.stopped_recording" if job["status"] == "recording" else "job.dequeued")
     persist(job, status="canceled", detail=stopped)
     process = running.get(job_id)
     if process is not None:

@@ -1,6 +1,3 @@
-# deno 는 yt-dlp 가 유튜브 서명과 n 챌린지를 푸는 데 씁니다. 없으면 포맷이 통째로 사라집니다.
-FROM denoland/deno:bin AS deno
-
 # 화면은 Flutter 웹으로 빌드합니다. 결과물만 마지막 이미지로 옮깁니다.
 # CI 의 flutter-version 과 같이 올립니다.
 FROM ghcr.io/cirruslabs/flutter:3.44.0 AS web
@@ -8,7 +5,8 @@ WORKDIR /client
 COPY client/pubspec.yaml client/pubspec.lock ./
 RUN flutter pub get
 COPY client/ ./
-RUN flutter build web --release --base-href /
+# O4(기본값)는 file_picker 웹 구현의 타입 검사를 지워 파일 고르기 창이 열리지 않습니다. O3 로 둡니다.
+RUN flutter build web --release --dart2js-optimization O3 --base-href /
 
 # Docker Hub 익명 pull 제한(429)을 피하려고 구글의 Docker Hub 미러를 씁니다.
 # AWS Public ECR 미러는 2026-11-20 에 CI 에서 "Data limit exceeded" 로 막힌 적이 있습니다.
@@ -34,8 +32,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && curl -fsSL -o /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get install -y --no-install-recommends /tmp/chrome.deb \
     && rm -rf /tmp/chrome.deb /var/lib/apt/lists/*
-
-COPY --from=deno /deno /usr/local/bin/deno
 
 WORKDIR /app
 COPY requirements.txt .

@@ -1,18 +1,24 @@
 # Solo
 
-수노(Suno)에서 만든 내 곡은 녹음하고 유튜브 곡은 받아서 서버에 모아 두고, 폰과 PC 브라우저에서 나만 듣는 재생기로 내려주는 셀프호스팅 앱입니다.
+수노(Suno)에서 내가 만든 곡은 녹음하고, 내가 만들었거나 산 곡 파일은 올려서 서버에 모아 두고, 폰과 PC 에서 나만 듣는 재생기로 내려주는 셀프호스팅 앱입니다.
 
-A self-hosted personal music player. Paste a link to your own Suno song or a YouTube track, the server keeps the audio, and you listen from any browser, including iPhone with the screen off.
+A self-hosted personal music player. Paste a link to a Suno song you made, or upload audio files you made or bought. The server keeps them and you listen from your own phone or computer, including iPhone with the screen off.
 
 ## 무엇을 하나
 
 - 수노 곡 주소를 넣으면 컨테이너 안의 헤드리스 크롬이 곡을 실시간으로 재생해 녹음하고 MP3 로 저장합니다. 제목, 아티스트, 태그, 길이, 표지도 함께 가져옵니다.
-- 유튜브 주소를 넣거나 곡 이름으로 찾으면 서버가 mp3 로 받아 둡니다. 재생목록 주소는 최대 1000곡까지 폅니다. 한 번에 한 곡씩, 곡 사이를 띄워서 받습니다.
+- 가진 곡 파일(mp3, m4a, flac, wav, ogg, opus, aac)을 올리면 mp3 와 m4a 는 그대로, 나머지는 mp3 로 바꿔 둡니다. 제목, 아티스트, 표지는 파일 안의 태그에서 가져옵니다.
 - 곡 정보와 좋아요는 SQLite(`solo.db`) 하나에 두고, 오디오와 표지는 파일로 둡니다. 앱에서 곡을 빼면 파일은 지우지 않고 `archive/` 폴더로 옮깁니다.
 - 재생기는 설치 없이 쓰는 웹앱(PWA)입니다. 아이폰 사파리에서 화면을 꺼도 다음 곡으로 넘어가며 이어 재생되고, 잠금 화면 컨트롤과 표지가 나옵니다.
 - 네트워크가 끊기면 다음 곡으로 넘기지 않고 끊긴 자리부터 다시 받습니다.
 
-본인이 만든 곡만 넣으세요. 이 앱은 로그인 쿠키나 암호화 키를 다루지 않고, 비로그인 상태의 공개 재생을 녹음합니다. 녹음은 곡 길이만큼 걸리며 한 번에 한 곡씩 처리합니다.
+## 담는 곡의 범위
+
+Solo 는 **내가 만든 곡과 정당하게 가진 곡만** 담는 개인용 재생기입니다.
+
+- 수노 녹음은 본인이 만든 곡에만 씁니다. 로그인 쿠키나 암호화 키를 다루지 않고 비로그인 공개 재생을 한 번에 한 곡씩 녹음합니다. 유료 플랜이라면 수노가 내주는 공식 다운로드 파일을 올리는 쪽을 권합니다.
+- 다른 스트리밍 서비스(유튜브 등)에서 음원을 받아 오는 기능은 없습니다. 예전 버전에 있던 유튜브 받기는 서비스 약관과 기술적 보호조치 우회 문제로 뺐습니다.
+- 서버는 본인 기기에서만 듣도록 둡니다. 남과 계정을 나눠 스트리밍하는 것은 사적 이용의 범위를 벗어날 수 있습니다.
 
 ## 실행
 
@@ -28,26 +34,11 @@ docker compose up -d
 | `SOLO_PORT` | `8000` | 호스트에 여는 포트 |
 | `SOLO_LIBRARY` | `./library` | 곡, 표지, `solo.db` 를 두는 폴더 |
 | `SOLO_PASSWORD` | 비어 있음 | 정하면 모든 요청에 HTTP Basic 인증을 겁니다(사용자 이름은 아무거나) |
-| `SOLO_POT_BASE_URL` | compose 에서 지정 | PO Token 공급자 주소 |
-| `SOLO_YT_COOKIES` | `<라이브러리>/.youtube/cookies.txt` | 유튜브 계정 쿠키 위치 |
 | `TZ` | `Asia/Seoul` | 시간대 |
 
 **인터넷에 직접 열 때는 `SOLO_PASSWORD` 를 반드시 정하세요.** 비밀번호가 없으면 주소를 아는 누구나 곡을 지우거나 녹음을 걸 수 있습니다. 앞단에 다른 인증(예: Cloudflare Access, VPN)이 있으면 비워 둬도 됩니다.
 
 녹음용 크롬이 공유 메모리를 쓰므로 `shm_size: 1gb` 를 유지하세요.
-
-## 유튜브 계정 연결 (선택)
-
-계정 없이도 유튜브 일반 검색으로 찾고 받을 수 있습니다. 다만 뮤직비디오, 커버, 라이브가 섞여 나옵니다.
-계정을 연결하면 유튜브 뮤직의 "노래" 검색을 써서 공식 음원만 곡명, 아티스트, 앨범, 정사각형 표지와 함께 나옵니다.
-
-1. 주 계정이 아닌 **서브 계정**으로 브라우저에서 youtube.com 에 로그인합니다.
-2. "Get cookies.txt LOCALLY" 같은 확장으로 youtube.com 쿠키를 Netscape 형식 `cookies.txt` 로 내보냅니다.
-3. 앱의 추가 화면 아래 "유튜브 계정"에서 그 파일을 올립니다.
-
-서버는 youtube.com 과 google.com 쿠키만 남겨 `library/.youtube/cookies.txt` 에 본인만 읽을 수 있는 권한(600)으로 저장합니다. 이 파일은 계정 로그인 정보이므로 라이브러리 폴더를 남과 공유하지 마세요.
-
-받기에는 PO Token 공급자 컨테이너(`bgutil-pot`)가 필요합니다. `compose.yaml` 에 함께 들어 있습니다.
 
 ## 아이폰에서
 

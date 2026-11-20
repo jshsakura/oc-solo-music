@@ -26,7 +26,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
   Me? _me;
   List<Device>? _devices;
   AppBuild? _android;
-  bool? _youtube;
 
   @override
   void initState() {
@@ -48,14 +47,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
     final results = await Future.wait([
       if (me?.owner ?? false) _try(api.devices()) else Future.value(null),
       kIsWeb ? _try(api.androidBuild()) : Future.value(null),
-      _try(api.youtubeLoggedIn()),
     ]);
     if (!mounted) return;
     setState(() {
       _me = me;
       _devices = results[0] as List<Device>?;
       _android = results[1] as AppBuild?;
-      _youtube = results[2] as bool?;
     });
   }
 
@@ -191,20 +188,6 @@ class _ConnectScreenState extends State<ConnectScreen> {
                     ],
                   ),
                 ],
-                if (_youtube != null) ...[
-                  _Header(s.accountTitle),
-                  _Group(
-                    children: [
-                      _Row(
-                        icon: Icons.smart_display_rounded,
-                        iconColor: const Color(0xFFE5322D),
-                        title: s.youtubeTitle,
-                        sub: _youtube! ? s.youtubeOn : s.youtubeOff,
-                        trailing: _Dot(on: _youtube!),
-                      ),
-                    ],
-                  ),
-                ],
                 if (widget.onChangeServer != null) ...[
                   _Header(s.serverSection),
                   _Group(
@@ -224,7 +207,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 ],
                 const SizedBox(height: 18),
                 Text(
-                  s.connectLater,
+                  s.ownMusicNote,
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 12, color: Palette.faint),
                 ),
@@ -327,14 +310,12 @@ class _Row extends StatelessWidget {
     required this.title,
     required this.sub,
     this.trailing,
-    this.iconColor,
   });
 
   final IconData icon;
   final String title;
   final String sub;
   final Widget? trailing;
-  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -348,7 +329,7 @@ class _Row extends StatelessWidget {
             color: Palette.sunk,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, size: 22, color: iconColor ?? Palette.ink),
+          child: Icon(icon, size: 22, color: Palette.ink),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -407,22 +388,6 @@ class _IconButton extends StatelessWidget {
           child: Icon(icon, size: 20, color: Palette.ink),
         ),
       ),
-    ),
-  );
-}
-
-class _Dot extends StatelessWidget {
-  const _Dot({required this.on});
-  final bool on;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 10,
-    height: 10,
-    margin: const EdgeInsets.only(right: 8),
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: on ? Palette.good : Palette.line2,
     ),
   );
 }

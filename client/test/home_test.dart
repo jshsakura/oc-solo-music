@@ -16,7 +16,7 @@ Track _t(String id, {String source = 'suno', bool liked = false}) => Track(
 
 final _all = [
   _t('a'),
-  _t('b', source: 'youtube', liked: true),
+  _t('b', source: 'upload', liked: true),
   _t('c', liked: true),
   _t('d', source: ''),
 ];
@@ -29,7 +29,7 @@ void main() {
     expect(ids(HomeCrate.recent), ['a', 'b', 'c', 'd']);
     expect(ids(HomeCrate.liked), ['b', 'c']);
     expect(ids(HomeCrate.suno), ['a', 'c']);
-    expect(ids(HomeCrate.youtube), ['b']);
+    expect(ids(HomeCrate.uploaded), ['b']);
   });
 
   test('dragging moves one record per 120 px and only overshoots a little', () {

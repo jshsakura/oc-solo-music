@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import '../api.dart';
 
 /// 홈 판 상자의 분류입니다. 서버가 곡을 최근에 넣은 순서로 주므로 최근은 전부입니다.
-enum HomeCrate { recent, liked, suno, youtube }
+enum HomeCrate { recent, liked, suno, uploaded }
 
 List<Track> crateTracks(List<Track> all, HomeCrate crate) => all
     .where(
@@ -11,7 +11,7 @@ List<Track> crateTracks(List<Track> all, HomeCrate crate) => all
         HomeCrate.recent => true,
         HomeCrate.liked => t.liked,
         HomeCrate.suno => t.source == 'suno',
-        HomeCrate.youtube => t.source == 'youtube',
+        HomeCrate.uploaded => t.source == 'upload',
       },
     )
     .toList(growable: false);

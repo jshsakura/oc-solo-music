@@ -220,31 +220,15 @@ def test_job_history_survives_a_restart_and_unfinished_jobs_are_queued_again(lib
     import app.main
 
     library.save_job(lib, {"id": "old", "kind": "suno", "key": "k1", "url": "", "status": "done", "detail": "ok", "title": "A"}, 50)
-    library.save_job(lib, {"id": "cut", "kind": "youtube", "key": "k2", "url": "", "status": "downloading", "detail": "", "title": "B"}, 50)
+    library.save_job(lib, {"id": "cut", "kind": "suno", "key": "k2", "url": "", "status": "recording", "detail": "", "title": "B"}, 50)
+    library.save_job(lib, {"id": "yt", "kind": "youtube", "key": "k3", "url": "", "status": "downloading", "detail": "", "title": "C"}, 50)
     main = importlib.reload(app.main)
-    main.queues.update(suno=asyncio.Queue(), youtube=asyncio.Queue())
+    main.queues.update(suno=asyncio.Queue())
 
     main.restore_jobs()
 
     assert {j["id"]: j["status"] for j in main.jobs} == {"old": "done", "cut": "queued"}
-    assert main.queues["youtube"].qsize() == 1 and main.queues["suno"].qsize() == 0
-    assert {j["id"]: j["status"] for j in library.load_jobs(lib)} == {"old": "done", "cut": "queued"}
-
-
-def test_stopping_a_youtube_job_keeps_the_other_jobs_temp_folders(lib, client):
-    import app.main as main
-
-    (lib / ".yt-AAAAAAAAAA1").mkdir()
-    (lib / ".yt-BBBBBBBBBB2").mkdir()
-    (lib / ".recording-x").mkdir()
-
-    class Gone:
-        pid = 2 ** 22 + 12345  # 없는 프로세스 그룹
-
-    main.stop_recorder(Gone(), {"kind": "youtube", "key": "AAAAAAAAAA1"})
-
-    assert not (lib / ".yt-AAAAAAAAAA1").exists()
-    assert (lib / ".yt-BBBBBBBBBB2").exists() and (lib / ".recording-x").exists()
+    assert main.queues["suno"].qsize() == 1
 
 
 def test_malformed_progress_line_is_not_read_as_progress():

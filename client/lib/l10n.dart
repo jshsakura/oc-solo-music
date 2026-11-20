@@ -38,7 +38,7 @@ abstract class S {
   String get crateAll;
   String get crateLiked;
   String get crateSuno;
-  String get crateYoutube;
+  String get crateUploaded;
   String libraryCount(int records, int likes);
   String get reload;
   String get emptyCrate;
@@ -87,28 +87,29 @@ abstract class S {
   String get submit;
   String queued(int n);
   String get alreadyHave;
-  String get noneFound;
-  String foundOnYoutube(int n);
-  String get getQueued;
-  String get get;
   String get jobDone;
   String get jobFailed;
   String get jobStopped;
   String get jobWaiting;
-  String get youtube;
   String get suno;
   String get removeFromQueue;
   String get preparingNext;
   String get idle;
-  String downloadingPct(int p);
   String recordingPct(int p);
   String nextCount(int n);
   String get tapeHint;
+  // 올리기
+  String get uploadTitle;
+  String get uploadNote;
+  String uploading(int done, int total);
+  String uploadDone(int added, int skipped);
+  String get sunoOwnNote;
+  String get uploadedKind;
   String get stopJob;
 
   // 아직 없는 화면
   String get homeLater;
-  String get connectLater;
+  String get ownMusicNote;
 
   // 서버 오류
   String get unreachable;
@@ -151,9 +152,6 @@ abstract class S {
   String get deviceRemove;
   String get cancel;
   String get accountTitle;
-  String get youtubeTitle;
-  String get youtubeOn;
-  String get youtubeOff;
   String get justNow;
   String get serverSection;
   String get appSection;
@@ -196,7 +194,7 @@ class _Ko extends S {
   @override
   String get crateSuno => '수노';
   @override
-  String get crateYoutube => '유튜브';
+  String get crateUploaded => '올린 곡';
   @override
   String libraryCount(int records, int likes) => '판 $records장 · 좋아요 $likes';
   @override
@@ -278,7 +276,7 @@ class _Ko extends S {
   @override
   String get history => '작업 기록';
   @override
-  String get inputHint => '주소 또는 곡 이름';
+  String get inputHint => '내가 만든 수노 곡 주소';
   @override
   String get submit => '넣기';
   @override
@@ -286,13 +284,9 @@ class _Ko extends S {
   @override
   String get alreadyHave => '이미 받았거나 대기 중인 곡입니다';
   @override
-  String get noneFound => '찾은 곡이 없습니다';
   @override
-  String foundOnYoutube(int n) => '유튜브에서 $n곡을 찾았습니다';
   @override
-  String get getQueued => '받기를 걸었습니다';
   @override
-  String get get => '받기';
   @override
   String get jobDone => '담았습니다';
   @override
@@ -302,7 +296,6 @@ class _Ko extends S {
   @override
   String get jobWaiting => '기다리는 중';
   @override
-  String get youtube => '유튜브';
   @override
   String get suno => '수노';
   @override
@@ -312,19 +305,34 @@ class _Ko extends S {
   @override
   String get idle => '대기 중';
   @override
-  String downloadingPct(int p) => '받는 중 $p%';
   @override
   String recordingPct(int p) => '녹음 중 $p%';
   @override
   String nextCount(int n) => '다음 $n곡';
   @override
   String get tapeHint => '주소를 넣으면 테이프가 들어갑니다';
+  // 올리기
+  @override
+  String get uploadTitle => '파일 올리기';
+  @override
+  String get uploadNote =>
+      '내가 만들었거나 산 곡 파일을 올립니다. mp3, m4a, flac, wav, ogg 를 받습니다';
+  @override
+  String uploading(int done, int total) => '$done/$total곡 올리는 중';
+  @override
+  String uploadDone(int added, int skipped) => added > 0
+      ? '$added곡을 담았습니다${skipped > 0 ? ', $skipped곡은 이미 있습니다' : ''}'
+      : '이미 있는 곡입니다';
+  @override
+  String get sunoOwnNote => '수노에서 내가 만든 곡만 녹음합니다';
+  @override
+  String get uploadedKind => '올린 곡';
   @override
   String get stopJob => '이 작업 멈추기';
   @override
   String get homeLater => '판 상자를 위아래로 넘기는 화면을 다음 단계에서 만듭니다';
   @override
-  String get connectLater => '유튜브와 구글 드라이브 연결을 다음 단계에서 붙입니다';
+  String get ownMusicNote => 'Solo 에는 내가 만든 곡과 정당하게 가진 곡만 담습니다';
   @override
   String get unreachable => '서버에 닿지 못했습니다';
 
@@ -400,11 +408,8 @@ class _Ko extends S {
   @override
   String get accountTitle => '계정';
   @override
-  String get youtubeTitle => '유튜브 계정';
   @override
-  String get youtubeOn => '로그인되어 있어 막힌 곡도 받습니다';
   @override
-  String get youtubeOff => '로그인하지 않아 일부 곡은 받지 못합니다';
   @override
   String get justNow => '방금';
   @override
@@ -433,14 +438,12 @@ class _Ko extends S {
     ApiFail.tracks => '곡 목록을 받지 못했습니다',
     ApiFail.like => '좋아요를 바꾸지 못했습니다',
     ApiFail.add => '주소를 넣지 못했습니다',
-    ApiFail.search => '유튜브에서 찾지 못했습니다',
-    ApiFail.get => '받기를 걸지 못했습니다',
+    ApiFail.upload => '파일을 올리지 못했습니다',
     ApiFail.jobs => '작업 목록을 받지 못했습니다',
     ApiFail.cancel => '작업을 멈추지 못했습니다',
     ApiFail.remove => '곡을 빼지 못했습니다',
     ApiFail.restore => '곡을 되살리지 못했습니다',
     ApiFail.archive => '뺀 곡 목록을 받지 못했습니다',
-    ApiFail.youtubeStatus => '유튜브 상태를 받지 못했습니다',
     ApiFail.app => '앱 정보를 받지 못했습니다',
     ApiFail.me => '로그인 정보를 받지 못했습니다',
     ApiFail.pair => '기기를 연결하지 못했습니다',
@@ -467,7 +470,7 @@ class _En extends S {
   @override
   String get crateSuno => 'Suno';
   @override
-  String get crateYoutube => 'YouTube';
+  String get crateUploaded => 'Uploaded';
   @override
   String libraryCount(int records, int likes) =>
       '$records ${records == 1 ? 'record' : 'records'} · $likes liked';
@@ -554,7 +557,7 @@ class _En extends S {
   @override
   String get history => 'History';
   @override
-  String get inputHint => 'Link or song name';
+  String get inputHint => 'Link to a Suno song you made';
   @override
   String get submit => 'Add';
   @override
@@ -563,14 +566,9 @@ class _En extends S {
   @override
   String get alreadyHave => 'Already saved or in the queue';
   @override
-  String get noneFound => 'No songs found';
   @override
-  String foundOnYoutube(int n) =>
-      n == 1 ? 'Found 1 song on YouTube' : 'Found $n songs on YouTube';
   @override
-  String get getQueued => 'Download queued';
   @override
-  String get get => 'Get';
   @override
   String get jobDone => 'Saved';
   @override
@@ -580,7 +578,6 @@ class _En extends S {
   @override
   String get jobWaiting => 'Waiting';
   @override
-  String get youtube => 'YouTube';
   @override
   String get suno => 'Suno';
   @override
@@ -590,20 +587,35 @@ class _En extends S {
   @override
   String get idle => 'Idle';
   @override
-  String downloadingPct(int p) => 'Downloading $p%';
   @override
   String recordingPct(int p) => 'Recording $p%';
   @override
   String nextCount(int n) => '$n up next';
   @override
   String get tapeHint => 'Add a link and a tape goes in';
+  // 올리기
+  @override
+  String get uploadTitle => 'Upload files';
+  @override
+  String get uploadNote =>
+      'Upload songs you made or bought. mp3, m4a, flac, wav and ogg work';
+  @override
+  String uploading(int done, int total) => 'Uploading $done of $total';
+  @override
+  String uploadDone(int added, int skipped) => added > 0
+      ? 'Added $added${skipped > 0 ? ', $skipped already here' : ''}'
+      : 'Already on your shelf';
+  @override
+  String get sunoOwnNote => 'Only record Suno songs you made yourself';
+  @override
+  String get uploadedKind => 'Uploaded';
   @override
   String get stopJob => 'Stop this job';
   @override
   String get homeLater =>
       'The record crate you flip through comes in the next step';
   @override
-  String get connectLater => 'YouTube and Google Drive come in the next step';
+  String get ownMusicNote => 'Solo only keeps songs you made or rightfully own';
   @override
   String get unreachable => 'Could not reach the server';
 
@@ -683,11 +695,8 @@ class _En extends S {
   @override
   String get accountTitle => 'Account';
   @override
-  String get youtubeTitle => 'YouTube account';
   @override
-  String get youtubeOn => 'Signed in, so restricted songs download too';
   @override
-  String get youtubeOff => 'Not signed in, so some songs cannot be downloaded';
   @override
   String get justNow => 'just now';
   @override
@@ -716,14 +725,12 @@ class _En extends S {
     ApiFail.tracks => 'Could not load your songs',
     ApiFail.like => 'Could not change the like',
     ApiFail.add => 'Could not add that link',
-    ApiFail.search => 'YouTube search failed',
-    ApiFail.get => 'Could not queue the download',
+    ApiFail.upload => 'Could not upload the file',
     ApiFail.jobs => 'Could not load the jobs',
     ApiFail.cancel => 'Could not stop the job',
     ApiFail.remove => 'Could not remove the song',
     ApiFail.restore => 'Could not restore the song',
     ApiFail.archive => 'Could not load removed songs',
-    ApiFail.youtubeStatus => 'Could not check YouTube',
     ApiFail.app => 'Could not load the app details',
     ApiFail.me => 'Could not check who is signed in',
     ApiFail.pair => 'Could not pair the device',
@@ -750,7 +757,7 @@ class _Ja extends S {
   @override
   String get crateSuno => 'Suno';
   @override
-  String get crateYoutube => 'YouTube';
+  String get crateUploaded => 'アップロード';
   @override
   String libraryCount(int records, int likes) => 'レコード $records枚 · いいね $likes';
   @override
@@ -832,7 +839,7 @@ class _Ja extends S {
   @override
   String get history => '履歴';
   @override
-  String get inputHint => 'リンクまたは曲名';
+  String get inputHint => '自分で作った Suno の曲のリンク';
   @override
   String get submit => '追加';
   @override
@@ -840,13 +847,9 @@ class _Ja extends S {
   @override
   String get alreadyHave => '保存済みか、すでにキューにある曲です';
   @override
-  String get noneFound => '曲が見つかりませんでした';
   @override
-  String foundOnYoutube(int n) => 'YouTubeで$n曲見つかりました';
   @override
-  String get getQueued => '保存を予約しました';
   @override
-  String get get => '保存';
   @override
   String get jobDone => '保存しました';
   @override
@@ -856,7 +859,6 @@ class _Ja extends S {
   @override
   String get jobWaiting => '待機中';
   @override
-  String get youtube => 'YouTube';
   @override
   String get suno => 'Suno';
   @override
@@ -866,19 +868,34 @@ class _Ja extends S {
   @override
   String get idle => '待機中';
   @override
-  String downloadingPct(int p) => '保存中 $p%';
   @override
   String recordingPct(int p) => '録音中 $p%';
   @override
   String nextCount(int n) => '次の$n曲';
   @override
   String get tapeHint => 'リンクを入れるとテープが入ります';
+  // 올리기
+  @override
+  String get uploadTitle => 'ファイルをアップロード';
+  @override
+  String get uploadNote =>
+      '自分で作った曲や購入した曲のファイルを入れます。mp3、m4a、flac、wav、ogg に対応しています';
+  @override
+  String uploading(int done, int total) => '$total曲中 $done曲をアップロード中';
+  @override
+  String uploadDone(int added, int skipped) => added > 0
+      ? '$added曲を追加しました${skipped > 0 ? '、$skipped曲はすでにあります' : ''}'
+      : 'すでにある曲です';
+  @override
+  String get sunoOwnNote => 'Suno で自分が作った曲だけを録音します';
+  @override
+  String get uploadedKind => 'アップロード';
   @override
   String get stopJob => 'この作業を止める';
   @override
   String get homeLater => 'レコード箱をめくる画面は次の段階で作ります';
   @override
-  String get connectLater => 'YouTube と Google ドライブの連携は次の段階で付けます';
+  String get ownMusicNote => 'Solo には自分で作った曲と正当に持っている曲だけを入れます';
   @override
   String get unreachable => 'サーバーにつながりませんでした';
 
@@ -954,11 +971,8 @@ class _Ja extends S {
   @override
   String get accountTitle => 'アカウント';
   @override
-  String get youtubeTitle => 'YouTube アカウント';
   @override
-  String get youtubeOn => 'ログイン済みなので制限のある曲も保存できます';
   @override
-  String get youtubeOff => 'ログインしていないため一部の曲は保存できません';
   @override
   String get justNow => 'たった今';
   @override
@@ -986,14 +1000,12 @@ class _Ja extends S {
     ApiFail.tracks => '曲の一覧を読み込めませんでした',
     ApiFail.like => 'いいねを変更できませんでした',
     ApiFail.add => 'リンクを追加できませんでした',
-    ApiFail.search => 'YouTube の検索に失敗しました',
-    ApiFail.get => '保存を予約できませんでした',
+    ApiFail.upload => 'ファイルをアップロードできませんでした',
     ApiFail.jobs => '作業の一覧を読み込めませんでした',
     ApiFail.cancel => '作業を止められませんでした',
     ApiFail.remove => '曲を外せませんでした',
     ApiFail.restore => '曲を戻せませんでした',
     ApiFail.archive => '外した曲の一覧を読み込めませんでした',
-    ApiFail.youtubeStatus => 'YouTube の状態を確認できませんでした',
     ApiFail.app => 'アプリの情報を取得できませんでした',
     ApiFail.me => 'ログイン情報を取得できませんでした',
     ApiFail.pair => '端末を接続できませんでした',

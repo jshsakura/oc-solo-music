@@ -5,20 +5,20 @@ import 'theme.dart';
 import 'widgets/sleeve.dart';
 import 'l10n.dart';
 
-enum Crate { all, liked, suno, youtube }
+enum Crate { all, liked, suno, uploaded }
 
 String _crateName(S s, Crate c) => switch (c) {
   Crate.all => s.crateAll,
   Crate.liked => s.crateLiked,
   Crate.suno => s.crateSuno,
-  Crate.youtube => s.crateYoutube,
+  Crate.uploaded => s.crateUploaded,
 };
 
 bool _inCrate(Track t, Crate c) => switch (c) {
   Crate.all => true,
   Crate.liked => t.liked,
   Crate.suno => t.source == 'suno',
-  Crate.youtube => t.source == 'youtube',
+  Crate.uploaded => t.source == 'upload',
 };
 
 /// 보관함 목록입니다. 곡을 누르면 그 분류 전체를 대기열로 올리고 그 곡부터 재생합니다.

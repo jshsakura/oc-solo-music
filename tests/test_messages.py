@@ -27,12 +27,12 @@ def test_picks_query_then_accept_language_then_english():
 def test_renders_codes_and_passes_plain_text_through():
     take = msg("suno.take", actual="1.00", expected="1.00", dropouts=0, stalls=0, clicks=2)
     assert messages.render(take, "en").startswith("1.00s (original 1.00s)")
-    assert messages.render("yt-dlp said no", "ja") == "yt-dlp said no"
+    assert messages.render("recorder said no", "ja") == "recorder said no"
     assert messages.render(None, "ko") == ""
 
 
 def test_wire_round_trip_keeps_codes_and_rejects_unknown():
-    m = msg("youtube.private")
+    m = msg("upload.not_audio")
     assert messages.from_wire(messages.to_wire(m)) == m
     assert messages.from_wire('@{"code": "nope"}') == '@{"code": "nope"}'
     assert messages.from_wire("plain reason") == "plain reason"
@@ -44,6 +44,6 @@ def test_api_errors_follow_the_request_language(client):
     ja = client.post("/api/add", json=bad, headers={"accept-language": "ja"})
     en = client.post("/api/add?lang=en", json=bad, headers={"accept-language": "ko"})
     assert ko.status_code == ja.status_code == en.status_code == 400
-    assert ko.json()["detail"].startswith("수노나 유튜브")
-    assert ja.json()["detail"].startswith("Suno か YouTube")
-    assert en.json() == {"detail": "Not a Suno or YouTube link: https://example.com/x", "code": "add.bad_url"}
+    assert ko.json()["detail"].startswith("수노 곡 주소가")
+    assert ja.json()["detail"].startswith("Suno の曲")
+    assert en.json() == {"detail": "Not a Suno song link: https://example.com/x", "code": "add.bad_url"}

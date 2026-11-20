@@ -12,7 +12,7 @@ String _crateName(S s, HomeCrate c) => switch (c) {
   HomeCrate.recent => s.homeCrateRecent,
   HomeCrate.liked => s.crateLiked,
   HomeCrate.suno => s.crateSuno,
-  HomeCrate.youtube => s.crateYoutube,
+  HomeCrate.uploaded => s.crateUploaded,
 };
 
 /// 판 상자를 위아래로 넘겨 고르는 홈입니다. 맨 앞 판을 누르면 레코드가 빠져나오고,
