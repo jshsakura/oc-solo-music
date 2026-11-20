@@ -10,11 +10,13 @@ import '../theme.dart';
 class Deck extends StatefulWidget {
   const Deck({
     super.key,
+    required this.api,
     required this.job,
     required this.waiting,
     required this.onCancel,
   });
 
+  final Api api;
   final Job? job;
   final int waiting;
   final VoidCallback onCancel;
@@ -140,6 +142,15 @@ class _DeckState extends State<Deck> with SingleTickerProviderStateMixin {
                         spin: _spin,
                         progress: p,
                         title: job?.label ?? '',
+                        cover: job != null && job.hasCover
+                            ? Image.network(
+                                widget.api.jobCoverUri(job.id).toString(),
+                                headers: widget.api.headers,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
+                              )
+                            : null,
                       ),
                     ),
                   ),
@@ -148,16 +159,19 @@ class _DeckState extends State<Deck> with SingleTickerProviderStateMixin {
             ),
           ),
           if (job != null) ...[
-            const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(100),
-              child: LinearProgressIndicator(
-                value: p,
-                minHeight: 4,
-                backgroundColor: Palette.sunk,
-                color: Palette.butter,
+            // 실제로 받고 있을 때(진행률이 0 보다 클 때)만 막대를 보여 줍니다.
+            if (p > 0) ...[
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(100),
+                child: LinearProgressIndicator(
+                  value: p,
+                  minHeight: 4,
+                  backgroundColor: Palette.sunk,
+                  color: Palette.butter,
+                ),
               ),
-            ),
+            ],
             const SizedBox(height: 12),
             Align(
               alignment: Alignment.centerRight,
@@ -278,11 +292,15 @@ class _Tape extends StatelessWidget {
     required this.spin,
     required this.progress,
     required this.title,
+    this.cover,
   });
 
   final Animation<double> spin;
   final double progress;
   final String title;
+
+  /// 테이프 가운데 창에 붙는 곡 표지입니다. 받아 오기 전에는 비어 있습니다.
+  final Widget? cover;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -307,6 +325,23 @@ class _Tape extends StatelessWidget {
         _Spool(left: false, radius: 16 + progress * 10),
         Positioned(left: 30, top: 21, child: _Reel(spin: spin)),
         Positioned(right: 30, top: 21, child: _Reel(spin: spin)),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 12,
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              child: cover == null
+                  ? const SizedBox(key: ValueKey(false), height: 44)
+                  : ClipRRect(
+                      key: const ValueKey(true),
+                      borderRadius: BorderRadius.circular(6),
+                      child: SizedBox.square(dimension: 44, child: cover),
+                    ),
+            ),
+          ),
+        ),
         Positioned(
           left: 50,
           right: 50,

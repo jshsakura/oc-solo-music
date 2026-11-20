@@ -159,6 +159,7 @@ class _AddScreenState extends State<AddScreen> {
               _UploadCard(progress: _uploading, onTap: _upload),
               const SizedBox(height: 16),
               Deck(
+                api: widget.api,
                 job: w.running,
                 waiting: w.waiting,
                 onCancel: () => w.running == null ? null : w.cancel(w.running!),

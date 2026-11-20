@@ -61,6 +61,7 @@ class Job {
     required this.url,
     required this.detail,
     required this.progress,
+    this.hasCover = false,
   });
 
   factory Job.fromJson(Map<String, dynamic> json) => Job(
@@ -71,6 +72,7 @@ class Job {
     url: (json['url'] as String?) ?? '',
     detail: (json['detail'] as String?) ?? '',
     progress: ((json['progress'] as num?) ?? 0).toDouble(),
+    hasCover: json['cover'] == true,
   );
 
   static const active = {'queued', 'recording'};
@@ -82,6 +84,9 @@ class Job {
   final String url;
   final String detail;
   final double progress;
+
+  /// 녹음을 기다리는 동안 미리 받아 둔 수노 표지가 있는지입니다.
+  final bool hasCover;
 
   bool get isActive => active.contains(status);
   bool get isRunning => status == 'recording';
@@ -237,6 +242,8 @@ class Api {
 
   Uri audioUri(String id) => _at('/api/audio/${Uri.encodeComponent(id)}');
   Uri coverUri(String id) => _at('/api/cover/${Uri.encodeComponent(id)}');
+  Uri jobCoverUri(String id) =>
+      _at('/api/jobs/${Uri.encodeComponent(id)}/cover');
   Uri get apkUri => _at('/solo.apk');
 
   /// 서버에 안드로이드 앱이 있으면 버전과 크기를, 없으면 null 을 돌려줍니다.
