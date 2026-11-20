@@ -142,7 +142,12 @@ def peek_clip(url: str, cover: Path) -> dict:
             url = response.geturl()
     clip = fetch_clip(clip_id_from_url(url))
     save_cover(cover, clip.get("image_large_url") or clip.get("image_url") or "")
-    return {"title": (clip.get("title") or "")[:200], "cover": cover.exists()}
+    try:  # 데크가 지난 시간과 전체 길이를 보여 주려고 곡 길이도 같이 넘깁니다
+        duration = float((clip.get("metadata") or {}).get("duration") or 0)
+    except (TypeError, ValueError):
+        duration = 0.0
+    info = {"title": (clip.get("title") or "")[:200], "cover": cover.exists()}
+    return info | ({"duration": duration} if duration > 0 else {})
 
 
 def write_sidecar(target: Path, clip_id: str, clip: dict, duration: float) -> None:

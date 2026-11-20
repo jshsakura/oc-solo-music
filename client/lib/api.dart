@@ -62,6 +62,7 @@ class Job {
     required this.detail,
     required this.progress,
     this.hasCover = false,
+    this.duration,
   });
 
   factory Job.fromJson(Map<String, dynamic> json) => Job(
@@ -73,6 +74,10 @@ class Job {
     detail: (json['detail'] as String?) ?? '',
     progress: ((json['progress'] as num?) ?? 0).toDouble(),
     hasCover: json['cover'] == true,
+    duration: switch (json['duration']) {
+      final num d when d > 0 => d.toDouble(),
+      _ => null,
+    },
   );
 
   static const active = {'queued', 'recording'};
@@ -87,6 +92,9 @@ class Job {
 
   /// 녹음을 기다리는 동안 미리 받아 둔 수노 표지가 있는지입니다.
   final bool hasCover;
+
+  /// 수노가 알려 준 곡 길이(초)입니다. 모르면 비어 있습니다.
+  final double? duration;
 
   bool get isActive => active.contains(status);
   bool get isRunning => status == 'recording';
