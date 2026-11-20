@@ -30,6 +30,7 @@ PAGE_SETTLE_MS = 5000
 PLAY_SETTLE_MS = 6000
 MAX_RECORD_MARGIN_SEC = 60
 CLIP_API = "https://studio-api.prod.suno.com/api/clip/"
+HOOK_API = "https://studio-api.prod.suno.com/api/video/hooks/"
 USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/130.0 Safari/537.36"
@@ -81,21 +82,34 @@ class Result:
 
 
 def validate_url(url: str) -> str:
-    """수노 곡 주소와 공유 주소만 받습니다."""
+    """수노 곡 주소, 공유 주소, 훅 주소만 받습니다."""
     parts = urlsplit(url)
     is_suno = parts.scheme == "https" and parts.hostname in ("suno.com", "www.suno.com")
     is_song = re.fullmatch(rf"/song/{UUID_RE}/?", parts.path) is not None
     is_share = re.fullmatch(r"/s/[A-Za-z0-9]+/?", parts.path) is not None
-    if not (is_suno and (is_song or is_share)):
+    is_hook = re.fullmatch(rf"/hook/{UUID_RE}/?", parts.path) is not None
+    if not (is_suno and (is_song or is_share or is_hook)):
         raise ValueError(f"not a Suno song link: {url}")
     return url
 
 
 def clip_id_from_url(url: str) -> str:
-    match = re.search(rf"/song/({UUID_RE})", url)
-    if not match:
-        raise ValueError(f"no song ID in: {url}")
-    return match.group(1)
+    """곡 주소면 곡 ID 를, 훅(짧은 영상) 주소면 그 훅이 쓴 원래 곡의 ID 를 돌려줍니다."""
+    if match := re.search(rf"/song/({UUID_RE})", url):
+        return match.group(1)
+    if match := re.search(rf"/hook/({UUID_RE})", url):
+        return fetch_hook(match.group(1))["original_clip_id"]
+    raise ValueError(f"no song ID in: {url}")
+
+
+def fetch_hook(hook_id: str) -> dict:
+    request = urllib.request.Request(HOOK_API + hook_id, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)
+
+
+def song_url(clip_id: str) -> str:
+    return f"https://suno.com/song/{clip_id}"
 
 
 def slugify(title: str, fallback: str) -> str:
@@ -229,6 +243,9 @@ async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
         await page.goto(url, wait_until="domcontentloaded", timeout=60000)
         await page.wait_for_timeout(PAGE_SETTLE_MS)
         clip_id = clip_id_from_url(page.url)
+        if "/song/" not in page.url:  # 공유 주소가 훅으로 가면 원래 곡 화면에서 녹음합니다
+            await page.goto(song_url(clip_id), wait_until="domcontentloaded", timeout=60000)
+            await page.wait_for_timeout(PAGE_SETTLE_MS)
         clip = fetch_clip(clip_id)
         expected = float(clip["metadata"]["duration"])
         target = out_dir / f"{slugify(clip.get('title') or '', clip_id)}.mp3"
