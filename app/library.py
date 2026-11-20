@@ -22,7 +22,7 @@ SUFFIXES = (*AUDIO, ".jpg")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tracks (
-    id        TEXT PRIMARY KEY,           -- 오디오 파일 이름(확장자 제외). 유튜브 곡은 yt-<영상 ID>
+    id        TEXT PRIMARY KEY,           -- 오디오 파일 이름(확장자 제외). 올린 곡은 up-<내용 해시>
     title     TEXT NOT NULL,
     artist    TEXT NOT NULL DEFAULT '',
     tags      TEXT NOT NULL DEFAULT '',
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     liked     INTEGER NOT NULL DEFAULT 0,
     added     INTEGER NOT NULL,
     archived  INTEGER NOT NULL DEFAULT 0, -- 1 이면 앱 목록에서 뺐고 파일은 archive/ 에 있다
-    source    TEXT NOT NULL DEFAULT ''    -- suno | youtube | 빈 값(폴더에 직접 넣은 파일)
+    source    TEXT NOT NULL DEFAULT ''    -- suno | upload | 빈 값(폴더에 직접 넣은 파일). 예전 youtube 도 남아 있을 수 있다
 );
 """
 

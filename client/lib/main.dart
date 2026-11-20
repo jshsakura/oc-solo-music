@@ -30,7 +30,9 @@ Future<Api?> _startingApi() async {
   if (configured.isNotEmpty) return Api(Uri.parse(configured));
   if (kIsWeb) return Api(Uri.parse(Uri.base.origin));
   final saved = await ServerStore.load();
-  return saved == null ? null : Api(saved.address, password: saved.password);
+  return saved == null
+      ? null
+      : Api(saved.address, password: saved.password, token: saved.token);
 }
 
 class SoloApp extends StatefulWidget {

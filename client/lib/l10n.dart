@@ -38,7 +38,7 @@ abstract class S {
   String get crateAll;
   String get crateLiked;
   String get crateSuno;
-  String get crateYoutube;
+  String get crateUploaded;
   String libraryCount(int records, int likes);
   String get reload;
   String get emptyCrate;
@@ -87,31 +87,40 @@ abstract class S {
   String get submit;
   String queued(int n);
   String get alreadyHave;
-  String get noneFound;
-  String foundOnYoutube(int n);
-  String get getQueued;
-  String get get;
   String get jobDone;
   String get jobFailed;
   String get jobStopped;
   String get jobWaiting;
-  String get youtube;
   String get suno;
   String get removeFromQueue;
   String get preparingNext;
   String get idle;
-  String downloadingPct(int p);
   String recordingPct(int p);
   String nextCount(int n);
   String get tapeHint;
+  // 올리기
+  String get uploadTitle;
+  String get uploadNote;
+  String uploading(int done, int total);
+  String uploadDone(int added, int skipped);
+  String get sunoOwnNote;
+  String get uploadedKind;
   String get stopJob;
 
   // 아직 없는 화면
   String get homeLater;
-  String get connectLater;
+  String get ownMusicNote;
 
   // 서버 오류
   String get unreachable;
+
+  // 홈
+  String get homeCrateRecent;
+  String get homeHint;
+  String get homeHintOut;
+  String get homeLoad;
+  String get homeLoadLabel;
+  String get homeEmpty;
 
   // 서버 연결과 앱 받기
   String get serverTitle;
@@ -127,6 +136,33 @@ abstract class S {
   String get androidAppNote;
   String get androidGet;
   String androidBuild(String version, String size);
+  // 기기 연결과 관리
+  String get pairScan;
+  String get pairScanHint;
+  String get pairManual;
+  String get pairCameraDenied;
+  String get pairBadCode;
+  String get pairConnecting;
+  String get pairShowTitle;
+  String get pairNew;
+  String get devicesTitle;
+  String get devicesNote;
+  String get devicesNone;
+  String get deviceAdd;
+  String get deviceRemove;
+  String get cancel;
+  String get accountTitle;
+  String get justNow;
+  String get serverSection;
+  String get appSection;
+  String pairExpiresIn(int secs);
+  String pairDone(String name);
+  String deviceRemoveAsk(String name);
+  String seenAgo(String when);
+  String minutesAgo(int n);
+  String hoursAgo(int n);
+  String daysAgo(int n);
+  String signedInAs(String who);
   String apiFail(ApiFail what);
 
   /// 오류를 한 줄로 바꿉니다. 서버가 화면 언어로 사유를 보냈으면 그 사유를 그대로 씁니다.
@@ -158,7 +194,7 @@ class _Ko extends S {
   @override
   String get crateSuno => '수노';
   @override
-  String get crateYoutube => '유튜브';
+  String get crateUploaded => '올린 곡';
   @override
   String libraryCount(int records, int likes) => '판 $records장 · 좋아요 $likes';
   @override
@@ -240,7 +276,7 @@ class _Ko extends S {
   @override
   String get history => '작업 기록';
   @override
-  String get inputHint => '주소 또는 곡 이름';
+  String get inputHint => '내가 만든 수노 곡 주소';
   @override
   String get submit => '넣기';
   @override
@@ -248,13 +284,9 @@ class _Ko extends S {
   @override
   String get alreadyHave => '이미 받았거나 대기 중인 곡입니다';
   @override
-  String get noneFound => '찾은 곡이 없습니다';
   @override
-  String foundOnYoutube(int n) => '유튜브에서 $n곡을 찾았습니다';
   @override
-  String get getQueued => '받기를 걸었습니다';
   @override
-  String get get => '받기';
   @override
   String get jobDone => '담았습니다';
   @override
@@ -264,7 +296,6 @@ class _Ko extends S {
   @override
   String get jobWaiting => '기다리는 중';
   @override
-  String get youtube => '유튜브';
   @override
   String get suno => '수노';
   @override
@@ -274,21 +305,50 @@ class _Ko extends S {
   @override
   String get idle => '대기 중';
   @override
-  String downloadingPct(int p) => '받는 중 $p%';
   @override
   String recordingPct(int p) => '녹음 중 $p%';
   @override
   String nextCount(int n) => '다음 $n곡';
   @override
   String get tapeHint => '주소를 넣으면 테이프가 들어갑니다';
+  // 올리기
+  @override
+  String get uploadTitle => '파일 올리기';
+  @override
+  String get uploadNote =>
+      '내가 만들었거나 산 곡 파일을 올립니다. mp3, m4a, flac, wav, ogg 를 받습니다';
+  @override
+  String uploading(int done, int total) => '$done/$total곡 올리는 중';
+  @override
+  String uploadDone(int added, int skipped) => added > 0
+      ? '$added곡을 담았습니다${skipped > 0 ? ', $skipped곡은 이미 있습니다' : ''}'
+      : '이미 있는 곡입니다';
+  @override
+  String get sunoOwnNote => '수노에서 내가 만든 곡만 녹음합니다';
+  @override
+  String get uploadedKind => '올린 곡';
   @override
   String get stopJob => '이 작업 멈추기';
   @override
   String get homeLater => '판 상자를 위아래로 넘기는 화면을 다음 단계에서 만듭니다';
   @override
-  String get connectLater => '유튜브와 구글 드라이브 연결을 다음 단계에서 붙입니다';
+  String get ownMusicNote => 'Solo 에는 내가 만든 곡과 정당하게 가진 곡만 담습니다';
   @override
   String get unreachable => '서버에 닿지 못했습니다';
+
+  // 홈
+  @override
+  String get homeCrateRecent => '최근';
+  @override
+  String get homeHint => '위아래로 넘기고, 눌러서 꺼냅니다';
+  @override
+  String get homeHintOut => '판을 누르면 턴테이블에 올라갑니다';
+  @override
+  String get homeLoad => '올리기';
+  @override
+  String get homeLoadLabel => '턴테이블에 올리기';
+  @override
+  String get homeEmpty => '상자가 아직 비어 있습니다. 추가 탭에서 곡을 넣으면 여기에 꽂힙니다';
 
   @override
   String get serverTitle => '서버 연결';
@@ -316,20 +376,78 @@ class _Ko extends S {
   String get androidGet => '앱 받기';
   @override
   String androidBuild(String version, String size) => '버전 $version · $size';
+  // 기기 연결과 관리
+  @override
+  String get pairScan => 'QR로 연결';
+  @override
+  String get pairScanHint => '웹의 연결 탭에 뜬 QR을 비춥니다';
+  @override
+  String get pairManual => '주소로 직접 연결';
+  @override
+  String get pairCameraDenied => '카메라를 쓸 수 없습니다. 설정에서 카메라 권한을 켜 주세요';
+  @override
+  String get pairBadCode => 'Solo 연결 QR이 아닙니다';
+  @override
+  String get pairConnecting => '연결하는 중입니다';
+  @override
+  String get pairShowTitle => '앱에서 이 QR을 찍습니다';
+  @override
+  String get pairNew => '새 QR';
+  @override
+  String get devicesTitle => '기기';
+  @override
+  String get devicesNote => 'QR로 연결한 폰과 컴퓨터입니다';
+  @override
+  String get devicesNone => '아직 연결한 기기가 없습니다';
+  @override
+  String get deviceAdd => '새 기기 연결';
+  @override
+  String get deviceRemove => '연결 끊기';
+  @override
+  String get cancel => '취소';
+  @override
+  String get accountTitle => '계정';
+  @override
+  @override
+  @override
+  @override
+  String get justNow => '방금';
+  @override
+  String get serverSection => '서버';
+  @override
+  String get appSection => '앱';
+  @override
+  String pairExpiresIn(int secs) => '$secs초 뒤에 사라집니다';
+  @override
+  String pairDone(String name) => '$name 을(를) 연결했습니다';
+  @override
+  String deviceRemoveAsk(String name) =>
+      '$name 의 연결을 끊습니다. 다시 쓰려면 QR로 새로 연결해야 합니다';
+  @override
+  String seenAgo(String when) => '마지막 접속 $when';
+  @override
+  String minutesAgo(int n) => '$n분 전';
+  @override
+  String hoursAgo(int n) => '$n시간 전';
+  @override
+  String daysAgo(int n) => '$n일 전';
+  @override
+  String signedInAs(String who) => '$who 로 들어와 있습니다';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => '곡 목록을 받지 못했습니다',
     ApiFail.like => '좋아요를 바꾸지 못했습니다',
     ApiFail.add => '주소를 넣지 못했습니다',
-    ApiFail.search => '유튜브에서 찾지 못했습니다',
-    ApiFail.get => '받기를 걸지 못했습니다',
+    ApiFail.upload => '파일을 올리지 못했습니다',
     ApiFail.jobs => '작업 목록을 받지 못했습니다',
     ApiFail.cancel => '작업을 멈추지 못했습니다',
     ApiFail.remove => '곡을 빼지 못했습니다',
     ApiFail.restore => '곡을 되살리지 못했습니다',
     ApiFail.archive => '뺀 곡 목록을 받지 못했습니다',
-    ApiFail.youtubeStatus => '유튜브 상태를 받지 못했습니다',
     ApiFail.app => '앱 정보를 받지 못했습니다',
+    ApiFail.me => '로그인 정보를 받지 못했습니다',
+    ApiFail.pair => '기기를 연결하지 못했습니다',
+    ApiFail.devices => '기기 목록을 받지 못했습니다',
   };
 }
 
@@ -352,7 +470,7 @@ class _En extends S {
   @override
   String get crateSuno => 'Suno';
   @override
-  String get crateYoutube => 'YouTube';
+  String get crateUploaded => 'Uploaded';
   @override
   String libraryCount(int records, int likes) =>
       '$records ${records == 1 ? 'record' : 'records'} · $likes liked';
@@ -439,7 +557,7 @@ class _En extends S {
   @override
   String get history => 'History';
   @override
-  String get inputHint => 'Link or song name';
+  String get inputHint => 'Link to a Suno song you made';
   @override
   String get submit => 'Add';
   @override
@@ -448,14 +566,9 @@ class _En extends S {
   @override
   String get alreadyHave => 'Already saved or in the queue';
   @override
-  String get noneFound => 'No songs found';
   @override
-  String foundOnYoutube(int n) =>
-      n == 1 ? 'Found 1 song on YouTube' : 'Found $n songs on YouTube';
   @override
-  String get getQueued => 'Download queued';
   @override
-  String get get => 'Get';
   @override
   String get jobDone => 'Saved';
   @override
@@ -465,7 +578,6 @@ class _En extends S {
   @override
   String get jobWaiting => 'Waiting';
   @override
-  String get youtube => 'YouTube';
   @override
   String get suno => 'Suno';
   @override
@@ -475,22 +587,52 @@ class _En extends S {
   @override
   String get idle => 'Idle';
   @override
-  String downloadingPct(int p) => 'Downloading $p%';
   @override
   String recordingPct(int p) => 'Recording $p%';
   @override
   String nextCount(int n) => '$n up next';
   @override
   String get tapeHint => 'Add a link and a tape goes in';
+  // 올리기
+  @override
+  String get uploadTitle => 'Upload files';
+  @override
+  String get uploadNote =>
+      'Upload songs you made or bought. mp3, m4a, flac, wav and ogg work';
+  @override
+  String uploading(int done, int total) => 'Uploading $done of $total';
+  @override
+  String uploadDone(int added, int skipped) => added > 0
+      ? 'Added $added${skipped > 0 ? ', $skipped already here' : ''}'
+      : 'Already on your shelf';
+  @override
+  String get sunoOwnNote => 'Only record Suno songs you made yourself';
+  @override
+  String get uploadedKind => 'Uploaded';
   @override
   String get stopJob => 'Stop this job';
   @override
   String get homeLater =>
       'The record crate you flip through comes in the next step';
   @override
-  String get connectLater => 'YouTube and Google Drive come in the next step';
+  String get ownMusicNote => 'Solo only keeps songs you made or rightfully own';
   @override
   String get unreachable => 'Could not reach the server';
+
+  // 홈
+  @override
+  String get homeCrateRecent => 'Recent';
+  @override
+  String get homeHint => 'Flip up and down, tap to pull one out';
+  @override
+  String get homeHintOut => 'Tap the record to put it on the turntable';
+  @override
+  String get homeLoad => 'Load';
+  @override
+  String get homeLoadLabel => 'Put it on the turntable';
+  @override
+  String get homeEmpty =>
+      'The crate is empty for now. Songs you add in the Add tab land here.';
 
   @override
   String get serverTitle => 'Connect to a server';
@@ -520,20 +662,79 @@ class _En extends S {
   @override
   String androidBuild(String version, String size) =>
       'Version $version · $size';
+  // 기기 연결과 관리
+  @override
+  String get pairScan => 'Connect with QR';
+  @override
+  String get pairScanHint => 'Point at the QR on the web Connect tab';
+  @override
+  String get pairManual => 'Connect by address';
+  @override
+  String get pairCameraDenied =>
+      'Camera is unavailable. Allow camera access in settings';
+  @override
+  String get pairBadCode => 'This is not a Solo pairing QR';
+  @override
+  String get pairConnecting => 'Connecting';
+  @override
+  String get pairShowTitle => 'Scan this QR in the app';
+  @override
+  String get pairNew => 'New QR';
+  @override
+  String get devicesTitle => 'Devices';
+  @override
+  String get devicesNote => 'Phones and computers paired with a QR';
+  @override
+  String get devicesNone => 'No devices paired yet';
+  @override
+  String get deviceAdd => 'Pair a device';
+  @override
+  String get deviceRemove => 'Unpair';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get accountTitle => 'Account';
+  @override
+  @override
+  @override
+  @override
+  String get justNow => 'just now';
+  @override
+  String get serverSection => 'Server';
+  @override
+  String get appSection => 'App';
+  @override
+  String pairExpiresIn(int secs) => 'Expires in ${secs}s';
+  @override
+  String pairDone(String name) => 'Paired $name';
+  @override
+  String deviceRemoveAsk(String name) =>
+      'Unpair $name? It will need a new QR to connect again';
+  @override
+  String seenAgo(String when) => 'Last seen $when';
+  @override
+  String minutesAgo(int n) => '${n}m ago';
+  @override
+  String hoursAgo(int n) => '${n}h ago';
+  @override
+  String daysAgo(int n) => '${n}d ago';
+  @override
+  String signedInAs(String who) => 'Signed in as $who';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => 'Could not load your songs',
     ApiFail.like => 'Could not change the like',
     ApiFail.add => 'Could not add that link',
-    ApiFail.search => 'YouTube search failed',
-    ApiFail.get => 'Could not queue the download',
+    ApiFail.upload => 'Could not upload the file',
     ApiFail.jobs => 'Could not load the jobs',
     ApiFail.cancel => 'Could not stop the job',
     ApiFail.remove => 'Could not remove the song',
     ApiFail.restore => 'Could not restore the song',
     ApiFail.archive => 'Could not load removed songs',
-    ApiFail.youtubeStatus => 'Could not check YouTube',
     ApiFail.app => 'Could not load the app details',
+    ApiFail.me => 'Could not check who is signed in',
+    ApiFail.pair => 'Could not pair the device',
+    ApiFail.devices => 'Could not load the devices',
   };
 }
 
@@ -556,7 +757,7 @@ class _Ja extends S {
   @override
   String get crateSuno => 'Suno';
   @override
-  String get crateYoutube => 'YouTube';
+  String get crateUploaded => 'アップロード';
   @override
   String libraryCount(int records, int likes) => 'レコード $records枚 · いいね $likes';
   @override
@@ -638,7 +839,7 @@ class _Ja extends S {
   @override
   String get history => '履歴';
   @override
-  String get inputHint => 'リンクまたは曲名';
+  String get inputHint => '自分で作った Suno の曲のリンク';
   @override
   String get submit => '追加';
   @override
@@ -646,13 +847,9 @@ class _Ja extends S {
   @override
   String get alreadyHave => '保存済みか、すでにキューにある曲です';
   @override
-  String get noneFound => '曲が見つかりませんでした';
   @override
-  String foundOnYoutube(int n) => 'YouTubeで$n曲見つかりました';
   @override
-  String get getQueued => '保存を予約しました';
   @override
-  String get get => '保存';
   @override
   String get jobDone => '保存しました';
   @override
@@ -662,7 +859,6 @@ class _Ja extends S {
   @override
   String get jobWaiting => '待機中';
   @override
-  String get youtube => 'YouTube';
   @override
   String get suno => 'Suno';
   @override
@@ -672,21 +868,50 @@ class _Ja extends S {
   @override
   String get idle => '待機中';
   @override
-  String downloadingPct(int p) => '保存中 $p%';
   @override
   String recordingPct(int p) => '録音中 $p%';
   @override
   String nextCount(int n) => '次の$n曲';
   @override
   String get tapeHint => 'リンクを入れるとテープが入ります';
+  // 올리기
+  @override
+  String get uploadTitle => 'ファイルをアップロード';
+  @override
+  String get uploadNote =>
+      '自分で作った曲や購入した曲のファイルを入れます。mp3、m4a、flac、wav、ogg に対応しています';
+  @override
+  String uploading(int done, int total) => '$total曲中 $done曲をアップロード中';
+  @override
+  String uploadDone(int added, int skipped) => added > 0
+      ? '$added曲を追加しました${skipped > 0 ? '、$skipped曲はすでにあります' : ''}'
+      : 'すでにある曲です';
+  @override
+  String get sunoOwnNote => 'Suno で自分が作った曲だけを録音します';
+  @override
+  String get uploadedKind => 'アップロード';
   @override
   String get stopJob => 'この作業を止める';
   @override
   String get homeLater => 'レコード箱をめくる画面は次の段階で作ります';
   @override
-  String get connectLater => 'YouTube と Google ドライブの連携は次の段階で付けます';
+  String get ownMusicNote => 'Solo には自分で作った曲と正当に持っている曲だけを入れます';
   @override
   String get unreachable => 'サーバーにつながりませんでした';
+
+  // 홈
+  @override
+  String get homeCrateRecent => '最近';
+  @override
+  String get homeHint => '上下にめくって、タップで取り出します';
+  @override
+  String get homeHintOut => 'レコードをタップするとターンテーブルにのせます';
+  @override
+  String get homeLoad => 'のせる';
+  @override
+  String get homeLoadLabel => 'ターンテーブルにのせる';
+  @override
+  String get homeEmpty => '箱はまだ空です。追加タブで曲を入れるとここに並びます';
 
   @override
   String get serverTitle => 'サーバーに接続';
@@ -714,19 +939,76 @@ class _Ja extends S {
   String get androidGet => 'アプリを入手';
   @override
   String androidBuild(String version, String size) => 'バージョン $version · $size';
+  // 기기 연결과 관리
+  @override
+  String get pairScan => 'QR で接続';
+  @override
+  String get pairScanHint => 'Web の連携タブに出た QR を映します';
+  @override
+  String get pairManual => 'アドレスで接続';
+  @override
+  String get pairCameraDenied => 'カメラを使えません。設定でカメラを許可してください';
+  @override
+  String get pairBadCode => 'Solo の接続 QR ではありません';
+  @override
+  String get pairConnecting => '接続しています';
+  @override
+  String get pairShowTitle => 'アプリでこの QR を読み取ります';
+  @override
+  String get pairNew => '新しい QR';
+  @override
+  String get devicesTitle => '端末';
+  @override
+  String get devicesNote => 'QR で接続したスマホとパソコンです';
+  @override
+  String get devicesNone => '接続した端末はまだありません';
+  @override
+  String get deviceAdd => '端末を追加';
+  @override
+  String get deviceRemove => '接続を解除';
+  @override
+  String get cancel => 'キャンセル';
+  @override
+  String get accountTitle => 'アカウント';
+  @override
+  @override
+  @override
+  @override
+  String get justNow => 'たった今';
+  @override
+  String get serverSection => 'サーバー';
+  @override
+  String get appSection => 'アプリ';
+  @override
+  String pairExpiresIn(int secs) => '$secs 秒後に消えます';
+  @override
+  String pairDone(String name) => '$name を接続しました';
+  @override
+  String deviceRemoveAsk(String name) => '$name の接続を解除します。再び使うには QR で接続し直します';
+  @override
+  String seenAgo(String when) => '最終接続 $when';
+  @override
+  String minutesAgo(int n) => '$n 分前';
+  @override
+  String hoursAgo(int n) => '$n 時間前';
+  @override
+  String daysAgo(int n) => '$n 日前';
+  @override
+  String signedInAs(String who) => '$who でログインしています';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => '曲の一覧を読み込めませんでした',
     ApiFail.like => 'いいねを変更できませんでした',
     ApiFail.add => 'リンクを追加できませんでした',
-    ApiFail.search => 'YouTube の検索に失敗しました',
-    ApiFail.get => '保存を予約できませんでした',
+    ApiFail.upload => 'ファイルをアップロードできませんでした',
     ApiFail.jobs => '作業の一覧を読み込めませんでした',
     ApiFail.cancel => '作業を止められませんでした',
     ApiFail.remove => '曲を外せませんでした',
     ApiFail.restore => '曲を戻せませんでした',
     ApiFail.archive => '外した曲の一覧を読み込めませんでした',
-    ApiFail.youtubeStatus => 'YouTube の状態を確認できませんでした',
     ApiFail.app => 'アプリの情報を取得できませんでした',
+    ApiFail.me => 'ログイン情報を取得できませんでした',
+    ApiFail.pair => '端末を接続できませんでした',
+    ApiFail.devices => '端末の一覧を取得できませんでした',
   };
 }

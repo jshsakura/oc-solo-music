@@ -73,7 +73,7 @@ class Job {
     progress: ((json['progress'] as num?) ?? 0).toDouble(),
   );
 
-  static const active = {'queued', 'recording', 'downloading'};
+  static const active = {'queued', 'recording'};
 
   final String id;
   final String kind;
@@ -84,22 +84,8 @@ class Job {
   final double progress;
 
   bool get isActive => active.contains(status);
-  bool get isRunning => status == 'recording' || status == 'downloading';
+  bool get isRunning => status == 'recording';
   String get label => title.isNotEmpty ? title : url;
-}
-
-/// 유튜브 검색 결과 한 곡입니다. 받기를 누르면 이 모양 그대로 서버에 돌려줍니다.
-@immutable
-class Found {
-  const Found(this.raw);
-  final Map<String, dynamic> raw;
-
-  String get videoId => raw['videoId'] as String;
-  String get title => (raw['title'] as String?) ?? '';
-  String get artist => (raw['artist'] as String?) ?? '';
-  String get art => (raw['art'] as String?) ?? '';
-  double get duration => ((raw['duration'] as num?) ?? 0).toDouble();
-  bool get owned => raw['owned'] == true;
 }
 
 /// 어떤 요청이 실패했는지입니다. 화면 문구는 [S.apiFail] 이 언어별로 만듭니다.
@@ -107,15 +93,90 @@ enum ApiFail {
   tracks,
   like,
   add,
-  search,
-  get,
+  upload,
   jobs,
   cancel,
   remove,
   restore,
   archive,
-  youtubeStatus,
   app,
+  me,
+  pair,
+  devices,
+}
+
+/// 서버가 이 요청을 누구로 보는지입니다.
+class Me {
+  const Me({required this.via, required this.owner, this.email = ''});
+
+  factory Me.fromJson(Map j) => Me(
+    via: j['via'] as String? ?? '',
+    owner: j['owner'] == true,
+    email: j['email'] as String? ?? '',
+  );
+
+  final String via;
+  final bool owner;
+  final String email;
+}
+
+/// QR 에 담을 짝짓기 주소와 그 만료 시각입니다.
+class PairOffer {
+  const PairOffer({required this.uri, required this.expires});
+
+  factory PairOffer.fromJson(Map j) => PairOffer(
+    uri: j['uri'] as String,
+    expires: DateTime.fromMillisecondsSinceEpoch(
+      ((j['expires'] as num) * 1000).round(),
+    ),
+  );
+
+  final String uri;
+  final DateTime expires;
+}
+
+/// QR 로 짝지은 기기 한 대입니다.
+class Device {
+  const Device({
+    required this.id,
+    required this.name,
+    required this.platform,
+    this.lastSeen,
+  });
+
+  factory Device.fromJson(Map j) => Device(
+    id: j['id'] as String,
+    name: j['name'] as String? ?? '',
+    platform: j['platform'] as String? ?? '',
+    lastSeen: j['last_seen'] is num
+        ? DateTime.fromMillisecondsSinceEpoch(
+            ((j['last_seen'] as num) * 1000).round(),
+          )
+        : null,
+  );
+
+  final String id;
+  final String name;
+  final String platform;
+  final DateTime? lastSeen;
+}
+
+/// QR 에서 읽은 짝짓기 주소입니다. `solo://pair?server=…&code=…` 만 받습니다.
+class PairLink {
+  const PairLink(this.server, this.code);
+
+  final Uri server;
+  final String code;
+
+  static PairLink? parse(String text) {
+    final u = Uri.tryParse(text.trim());
+    if (u == null || u.scheme != 'solo' || u.host != 'pair') return null;
+    final server = Uri.tryParse(u.queryParameters['server'] ?? '');
+    final code = u.queryParameters['code'] ?? '';
+    if (server == null || server.host.isEmpty || code.isEmpty) return null;
+    if (server.scheme != 'http' && server.scheme != 'https') return null;
+    return PairLink(server, code);
+  }
 }
 
 /// 서버가 내주는 안드로이드 앱 한 벌입니다.
@@ -147,20 +208,24 @@ class ApiException implements Exception {
 
 /// Solo 서버와 이야기합니다. 어느 서버를 쓸지는 main.dart 가 정합니다.
 class Api {
-  Api(this.base, {this.password = '', http.Client? client}) {
+  Api(this.base, {this.password = '', this.token = '', http.Client? client}) {
     _client = _Speaking(client ?? http.Client(), () => language, () => headers);
   }
 
   /// 서버에 SOLO_PASSWORD 가 걸려 있을 때 쓰는 비밀번호입니다. 웹은 브라우저가 대신 들고 있어 비워 둡니다.
   final String password;
 
+  /// 웹에서 QR 로 짝지어 받은 기기 토큰입니다. 있으면 비밀번호보다 먼저 씁니다.
+  final String token;
+
   /// 오디오와 표지 요청에도 같은 인증을 붙입니다. 서버는 사용자 이름을 보지 않습니다.
-  Map<String, String> get headers => password.isEmpty
-      ? const {}
-      : {
-          'authorization':
-              'Basic ${base64Encode(utf8.encode('solo:$password'))}',
-        };
+  Map<String, String> get headers {
+    if (token.isNotEmpty) return {'authorization': 'Bearer $token'};
+    if (password.isEmpty) return const {};
+    return {
+      'authorization': 'Basic ${base64Encode(utf8.encode('solo:$password'))}',
+    };
+  }
 
   /// 서버 문구를 받을 언어입니다. 화면이 기기 언어를 정한 뒤 맞춰 둡니다.
   String language = 'en';
@@ -225,7 +290,7 @@ class Api {
 
   static const _jsonHeaders = {'content-type': 'application/json'};
 
-  /// 수노·유튜브 주소를 대기열에 넣고, 새로 들어간 작업 수를 돌려줍니다.
+  /// 내가 만든 수노 곡 주소를 대기열에 넣고, 새로 들어간 작업 수를 돌려줍니다.
   Future<int> add(List<String> urls) async {
     final body = await _json(
       _client.post(
@@ -238,27 +303,17 @@ class Api {
     return ((body as Map)['queued'] as num?)?.toInt() ?? 0;
   }
 
-  Future<List<Found>> search(String query) async {
+  /// 가진 곡 파일 하나를 올립니다. 새로 담았으면 true, 이미 있던 파일이면 false 입니다.
+  Future<bool> upload(String name, List<int> bytes) async {
     final body = await _json(
-      _client.get(_at('/api/search').replace(queryParameters: {'q': query})),
-      ApiFail.search,
-    );
-    final tracks = (body as Map)['tracks'];
-    return tracks is List
-        ? tracks.whereType<Map<String, dynamic>>().map(Found.new).toList()
-        : const [];
-  }
-
-  Future<int> get(Found track) async {
-    final body = await _json(
-      _client.post(
-        _at('/api/youtube/get'),
-        headers: _jsonHeaders,
-        body: jsonEncode(track.raw),
+      _client.put(
+        _at('/api/upload').replace(queryParameters: {'name': name}),
+        headers: {'content-type': 'application/octet-stream'},
+        body: bytes,
       ),
-      ApiFail.get,
+      ApiFail.upload,
     );
-    return ((body as Map)['queued'] as num?)?.toInt() ?? 0;
+    return (body as Map)['added'] == true;
   }
 
   Future<List<Job>> jobs() async {
@@ -291,13 +346,46 @@ class Api {
         : const [];
   }
 
-  Future<bool> youtubeLoggedIn() async {
-    final body = await _json(
-      _client.get(_at('/api/youtube/status')),
-      ApiFail.youtubeStatus,
+  /// 지금 요청을 서버가 누구로 보는지입니다. owner 만 기기를 짝짓고 지웁니다.
+  Future<Me> me() async =>
+      Me.fromJson(await _json(_client.get(_at('/api/me')), ApiFail.me) as Map);
+
+  /// 웹이 QR 로 띄울 1회용 짝짓기 주소를 받습니다.
+  Future<PairOffer> pair() async => PairOffer.fromJson(
+    await _json(_client.post(_at('/api/pair')), ApiFail.pair) as Map,
+  );
+
+  /// QR 의 코드를 이 기기의 토큰으로 바꿉니다. 아직 인증이 없는 요청입니다.
+  static Future<String> claim(
+    Uri server,
+    String code, {
+    required String name,
+    required String platform,
+    http.Client? client,
+  }) async {
+    final api = Api(server, client: client);
+    final body = await api._json(
+      api._client.post(
+        api._at('/api/pair/claim'),
+        headers: _jsonHeaders,
+        body: jsonEncode({'code': code, 'name': name, 'platform': platform}),
+      ),
+      ApiFail.pair,
     );
-    return (body as Map)['loggedIn'] == true;
+    return (body as Map)['token'] as String;
   }
+
+  Future<List<Device>> devices() async {
+    final body = await _json(_client.get(_at('/api/devices')), ApiFail.devices);
+    return body is List
+        ? body.whereType<Map>().map(Device.fromJson).toList()
+        : const [];
+  }
+
+  Future<void> removeDevice(String id) => _json(
+    _client.delete(_at('/api/devices/${Uri.encodeComponent(id)}')),
+    ApiFail.devices,
+  );
 }
 
 /// 모든 요청에 화면 언어를 실어 보냅니다. 서버가 실패 사유를 그 언어로 답합니다.

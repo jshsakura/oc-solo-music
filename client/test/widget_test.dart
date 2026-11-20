@@ -45,8 +45,8 @@ void main() {
   test('reads a job and tells running from waiting', () {
     final j = Job.fromJson({
       'id': 'j1',
-      'kind': 'youtube',
-      'status': 'downloading',
+      'kind': 'suno',
+      'status': 'recording',
       'url': 'https://example.com/v',
       'progress': 0.4,
     });

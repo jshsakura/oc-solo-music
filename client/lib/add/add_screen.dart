@@ -1,4 +1,6 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../api.dart';
 import '../l10n.dart';
@@ -6,7 +8,7 @@ import '../theme.dart';
 import 'deck.dart';
 import 'jobs_watch.dart';
 
-/// 추가 화면입니다. 주소를 넣으면 대기열에 넣고, 주소가 아닌 글은 유튜브에서 찾아 보여줍니다.
+/// 추가 화면입니다. 내가 만든 수노 곡 주소는 녹음 대기열에 넣고, 가진 곡 파일은 바로 올립니다.
 class AddScreen extends StatefulWidget {
   const AddScreen({super.key, required this.api, required this.watch});
 
@@ -23,8 +25,19 @@ class _AddScreenState extends State<AddScreen> {
   bool _sending = false;
   String? _note;
   bool _noteBad = false;
-  List<Found> _found = const [];
-  final Set<String> _asked = {};
+
+  /// 올리는 중이면 (끝낸 수, 전체 수) 입니다.
+  (int, int)? _uploading;
+
+  static const _audioTypes = [
+    'mp3',
+    'm4a',
+    'flac',
+    'wav',
+    'ogg',
+    'opus',
+    'aac',
+  ];
 
   @override
   void dispose() {
@@ -32,8 +45,6 @@ class _AddScreenState extends State<AddScreen> {
     _focus.dispose();
     super.dispose();
   }
-
-  static final _url = RegExp(r'^https?://\S+$');
 
   void _say(String text, {bool bad = false}) => setState(() {
     _note = text;
@@ -50,17 +61,10 @@ class _AddScreenState extends State<AddScreen> {
           .split(RegExp(r'\s+'))
           .where((w) => w.isNotEmpty)
           .toList();
-      if (urls.every(_url.hasMatch)) {
-        final n = await widget.api.add(urls);
-        _input.clear();
-        setState(() => _found = const []);
-        _say(n > 0 ? s.queued(n) : s.alreadyHave);
-        await widget.watch.refresh();
-      } else {
-        final found = await widget.api.search(text);
-        setState(() => _found = found);
-        _say(found.isEmpty ? s.noneFound : s.foundOnYoutube(found.length));
-      }
+      final n = await widget.api.add(urls);
+      _input.clear();
+      _say(n > 0 ? s.queued(n) : s.alreadyHave);
+      await widget.watch.refresh();
     } on Exception catch (e) {
       _say(s.describe(e), bad: true);
     } finally {
@@ -68,17 +72,40 @@ class _AddScreenState extends State<AddScreen> {
     }
   }
 
-  Future<void> _get(Found f) async {
+  Future<void> _upload() async {
+    if (_uploading != null) return;
     final s = S.of(context);
-    setState(() => _asked.add(f.videoId));
+    final List<PlatformFile> files;
     try {
-      final n = await widget.api.get(f);
-      _say(n > 0 ? s.getQueued : s.alreadyHave);
-      await widget.watch.refresh();
+      files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: _audioTypes,
+      );
     } on Exception catch (e) {
-      setState(() => _asked.remove(f.videoId));
       _say(s.describe(e), bad: true);
+      return;
     }
+    if (files.isEmpty || !mounted) return;
+    var added = 0, skipped = 0;
+    Object? failure;
+    for (var i = 0; i < files.length; i++) {
+      setState(() => _uploading = (i, files.length));
+      try {
+        final bytes = await files[i].readAsBytes();
+        (await widget.api.upload(files[i].name, bytes)) ? added++ : skipped++;
+      } on Exception catch (e) {
+        failure = e;
+      }
+    }
+    if (!mounted) return;
+    setState(() => _uploading = null);
+    if (added > 0) {
+      await HapticFeedback.mediumImpact();
+      widget.watch.onFinished();
+    }
+    failure != null && added == 0 && skipped == 0
+        ? _say(s.describe(failure), bad: true)
+        : _say(s.uploadDone(added, skipped), bad: failure != null);
   }
 
   @override
@@ -121,15 +148,15 @@ class _AddScreenState extends State<AddScreen> {
                     ),
                   ),
                 ),
-              if (_found.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                for (final f in _found)
-                  _FoundRow(
-                    found: f,
-                    asked: _asked.contains(f.videoId),
-                    onGet: () => _get(f),
-                  ),
-              ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+                child: Text(
+                  S.of(context).sunoOwnNote,
+                  style: const TextStyle(fontSize: 11.5, color: Palette.faint),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _UploadCard(progress: _uploading, onTap: _upload),
               const SizedBox(height: 16),
               Deck(
                 job: w.running,
@@ -231,91 +258,81 @@ class _InputRow extends StatelessWidget {
   );
 }
 
-class _FoundRow extends StatelessWidget {
-  const _FoundRow({
-    required this.found,
-    required this.asked,
-    required this.onGet,
-  });
+class _UploadCard extends StatelessWidget {
+  const _UploadCard({required this.progress, required this.onTap});
 
-  final Found found;
-  final bool asked;
-  final VoidCallback onGet;
+  final (int, int)? progress;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final have = found.owned || asked;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
+    final s = S.of(context);
+    final p = progress;
+    return Semantics(
+      button: true,
+      label: s.uploadTitle,
+      child: Material(
         color: Palette.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Palette.line),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox.square(
-              dimension: 44,
-              child: found.art.isEmpty
-                  ? const ColoredBox(color: Palette.sunk)
-                  : Image.network(
-                      found.art,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          const ColoredBox(color: Palette.sunk),
-                    ),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: p == null ? onTap : null,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Palette.line),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  found.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Palette.butter,
                   ),
+                  alignment: Alignment.center,
+                  child: p == null
+                      ? const Icon(
+                          Icons.upload_rounded,
+                          size: 24,
+                          color: Palette.ink,
+                        )
+                      : const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: Palette.ink,
+                          ),
+                        ),
                 ),
-                Text(
-                  [
-                    found.artist,
-                    if (found.duration > 0) formatTime(found.duration),
-                  ].where((s) => s.isNotEmpty).join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: Palette.faint),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        p == null ? s.uploadTitle : s.uploading(p.$1 + 1, p.$2),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        s.uploadNote,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Palette.faint,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          Semantics(
-            button: !have,
-            label: have ? S.of(context).saved : S.of(context).get,
-            child: GestureDetector(
-              onTap: have ? null : onGet,
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: have ? Palette.sunk : Palette.ink,
-                ),
-                child: Icon(
-                  have ? Icons.check_rounded : Icons.download_rounded,
-                  size: 18,
-                  color: have ? Palette.good : Palette.ground,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -370,7 +387,7 @@ class _JobRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${job.kind == 'youtube' ? s.youtube : s.suno} · $text',
+                  '${s.suno} · $text',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12, color: Palette.faint),

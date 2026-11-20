@@ -23,59 +23,24 @@ CATALOG: dict[str, dict[str, str]] = {
         "ja": "外した曲が見つかりませんでした",
     },
     "add.bad_url": {
-        "ko": "수노나 유튜브 주소가 아닙니다: {url}",
-        "en": "Not a Suno or YouTube link: {url}",
-        "ja": "Suno か YouTube のリンクではありません: {url}",
+        "ko": "수노 곡 주소가 아닙니다: {url}",
+        "en": "Not a Suno song link: {url}",
+        "ja": "Suno の曲のリンクではありません: {url}",
     },
-    "add.youtube_unreadable": {
-        "ko": "유튜브 주소를 읽지 못했습니다: {reason}",
-        "en": "Could not read the YouTube link: {reason}",
-        "ja": "YouTube のリンクを読み込めませんでした: {reason}",
+    "upload.bad_type": {
+        "ko": "올릴 수 없는 형식입니다: {name}. mp3, m4a, flac, wav, ogg, opus, aac 를 올립니다",
+        "en": "Can't upload this type: {name}. Use mp3, m4a, flac, wav, ogg, opus or aac",
+        "ja": "この形式はアップロードできません: {name}。mp3、m4a、flac、wav、ogg、opus、aac に対応しています",
     },
-    "add.nothing_found": {
-        "ko": "이 주소에서 받을 곡을 찾지 못했습니다",
-        "en": "No songs to get from this link",
-        "ja": "このリンクから保存できる曲が見つかりませんでした",
+    "upload.not_audio": {
+        "ko": "소리가 든 파일이 아닙니다",
+        "en": "This file has no audio",
+        "ja": "音声が入ったファイルではありません",
     },
-    "search.failed": {
-        "ko": "유튜브 검색이 실패했습니다: {reason}",
-        "en": "YouTube search failed: {reason}",
-        "ja": "YouTube の検索に失敗しました: {reason}",
-    },
-    "youtube.bad_id": {
-        "ko": "영상 ID 가 올바르지 않습니다",
-        "en": "Invalid video ID",
-        "ja": "動画 ID が正しくありません",
-    },
-    "youtube.no_login_cookie": {
-        "ko": "로그인 쿠키가 없습니다. 유튜브에 로그인한 상태에서 cookies.txt 를 내보내 주세요",
-        "en": "No sign-in cookie found. Export cookies.txt while signed in to YouTube",
-        "ja": "ログイン Cookie がありません。YouTube にログインした状態で cookies.txt を書き出してください",
-    },
-    "youtube.format_unavailable": {
-        "ko": "유튜브가 이 곡의 음원을 내주지 않았습니다. 잠시 뒤 다시 받아 보세요",
-        "en": "YouTube did not hand over the audio. Try again in a little while",
-        "ja": "YouTube が音源を渡しませんでした。少し待ってからもう一度お試しください",
-    },
-    "youtube.sign_in": {
-        "ko": "유튜브가 로그인을 요구합니다. 유튜브 계정을 연결해 보세요",
-        "en": "YouTube wants you to sign in. Try connecting a YouTube account",
-        "ja": "YouTube がログインを求めています。YouTube アカウントを連携してください",
-    },
-    "youtube.private": {
-        "ko": "비공개 영상이라 받을 수 없습니다",
-        "en": "This video is private",
-        "ja": "非公開の動画なので保存できません",
-    },
-    "youtube.unavailable": {
-        "ko": "지금은 볼 수 없는 영상입니다",
-        "en": "This video is not available right now",
-        "ja": "現在視聴できない動画です",
-    },
-    "youtube.no_file": {
-        "ko": "받은 파일이 없습니다",
-        "en": "Nothing was downloaded",
-        "ja": "保存されたファイルがありません",
+    "upload.too_big": {
+        "ko": "파일이 너무 큽니다. {mb}MB 까지 올립니다",
+        "en": "The file is too large. The limit is {mb} MB",
+        "ja": "ファイルが大きすぎます。{mb}MB まで対応しています",
     },
     "job.not_found": {
         "ko": "녹음 작업을 찾지 못했습니다",
@@ -91,11 +56,6 @@ CATALOG: dict[str, dict[str, str]] = {
         "ko": "녹음을 멈췄습니다",
         "en": "Recording stopped",
         "ja": "録音を止めました",
-    },
-    "job.stopped_downloading": {
-        "ko": "받기를 멈췄습니다",
-        "en": "Download stopped",
-        "ja": "保存を止めました",
     },
     "job.dequeued": {
         "ko": "대기열에서 뺐습니다",
@@ -121,6 +81,21 @@ CATALOG: dict[str, dict[str, str]] = {
         "ko": "아직 받을 수 있는 안드로이드 앱이 없습니다",
         "en": "No Android app is available yet",
         "ja": "ダウンロードできる Android アプリはまだありません",
+    },
+    "auth.owner_only": {
+        "ko": "관리자만 할 수 있습니다",
+        "en": "Only the owner can do this",
+        "ja": "管理者だけが操作できます",
+    },
+    "pair.invalid": {
+        "ko": "QR 코드가 맞지 않거나 시간이 지났습니다. 웹에서 새 QR 을 띄워 주세요",
+        "en": "This QR code is invalid or expired. Show a new one on the web",
+        "ja": "QR コードが正しくないか期限切れです。Web で新しい QR を表示してください",
+    },
+    "device.not_found": {
+        "ko": "기기를 찾지 못했습니다",
+        "en": "Device not found",
+        "ja": "端末が見つかりませんでした",
     },
     "auth.required": {
         "ko": "인증이 필요합니다",
