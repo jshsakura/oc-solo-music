@@ -2,7 +2,8 @@
 FROM denoland/deno:bin AS deno
 
 # 화면은 Flutter 웹으로 빌드합니다. 결과물만 마지막 이미지로 옮깁니다.
-FROM ghcr.io/cirruslabs/flutter:stable AS web
+# CI 의 flutter-version 과 같이 올립니다.
+FROM ghcr.io/cirruslabs/flutter:3.44.0 AS web
 WORKDIR /client
 COPY client/pubspec.yaml client/pubspec.lock ./
 RUN flutter pub get

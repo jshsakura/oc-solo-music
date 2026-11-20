@@ -28,6 +28,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.44.0  # Dockerfile 의 flutter 이미지와 같이 올립니다
           cache: true
       - run: flutter pub get
       - run: flutter analyze
