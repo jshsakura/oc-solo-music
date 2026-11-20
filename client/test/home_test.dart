@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:solo/api.dart';
 import 'package:solo/home/crate_math.dart'; // privacy-ok: 패키지 경로
 import 'package:solo/home/home_screen.dart'; // privacy-ok: 패키지 경로
+import 'package:solo/home/shelf_grid.dart'; // privacy-ok: 패키지 경로
 
 Track _t(String id, {String source = 'suno', bool liked = false}) => Track(
   id: id,
@@ -73,11 +75,24 @@ void main() {
     expect(sleevePose(7, 9).opacity, 0);
   });
 
+  test('the shelf keeps two columns on a phone and adds more when wider', () {
+    expect(shelfColumns(390), 2);
+    expect(shelfColumns(320), 2);
+    expect(shelfColumns(800), 4);
+    expect(shelfColumns(3000), 6);
+  });
+
   group('home screen', () {
     late List<(List<Track>, int)> played;
 
-    Future<void> pump(WidgetTester tester, List<Track> tracks) async {
-      tester.view.physicalSize = const Size(390, 780);
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    Future<void> pump(
+      WidgetTester tester,
+      List<Track> tracks, {
+      double width = 390,
+    }) async {
+      tester.view.physicalSize = Size(width, 780);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       played = [];
@@ -168,6 +183,80 @@ void main() {
         find.text('Tap the record to put it on the turntable'),
         findsNothing,
       );
+    });
+
+    testWidgets('the view button swaps the crate for the shelf and back', (
+      tester,
+    ) async {
+      await pump(tester, _all);
+      expect(find.byKey(const Key('home-stage')), findsOneWidget);
+      expect(find.bySemanticsLabel('Shelf view'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('home-view-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-shelf')), findsOneWidget);
+      expect(find.byKey(const Key('home-stage')), findsNothing);
+      expect(find.text('4'), findsOneWidget);
+      expect(find.text('Song a'), findsOneWidget);
+      expect(find.bySemanticsLabel('Crate view'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(homeViewKey), 'shelf');
+
+      await tester.tap(find.byKey(const Key('home-view-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-stage')), findsOneWidget);
+      expect(find.byKey(const Key('home-shelf')), findsNothing);
+      expect(prefs.getString(homeViewKey), 'crate');
+    });
+
+    testWidgets('the shelf view comes back on the next visit', (tester) async {
+      SharedPreferences.setMockInitialValues({homeViewKey: 'shelf'});
+      await pump(tester, _all);
+      expect(find.byKey(const Key('home-shelf')), findsOneWidget);
+    });
+
+    testWidgets('crate chips filter the shelf too', (tester) async {
+      await pump(tester, _all, width: 900);
+      await tester.tap(find.byKey(const Key('home-view-toggle')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Liked'));
+      await tester.pumpAndSettle();
+      expect(find.text('Song a'), findsNothing);
+      expect(find.text('Song b'), findsOneWidget);
+      expect(find.text('Song c'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+
+      await tester.tap(find.text('Uploaded'));
+      await tester.pumpAndSettle();
+      expect(find.text('Song b'), findsOneWidget);
+      expect(find.text('Song c'), findsNothing);
+    });
+
+    testWidgets('tapping a cover plays that crate from that record', (
+      tester,
+    ) async {
+      await pump(tester, _all, width: 900);
+      await tester.tap(find.byKey(const Key('home-view-toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Liked'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.bySemanticsLabel('Play Song c'));
+      await tester.pumpAndSettle();
+      expect(played, hasLength(1));
+      expect([for (final t in played.single.$1) t.id], ['b', 'c']);
+      expect(played.single.$2, 1);
+    });
+
+    testWidgets('an empty crate on the shelf says so', (tester) async {
+      await pump(tester, [_t('x', source: 'upload')]);
+      await tester.tap(find.byKey(const Key('home-view-toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Suno'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-shelf')), findsNothing);
+      expect(find.text('No records here yet'), findsOneWidget);
     });
   });
 }
