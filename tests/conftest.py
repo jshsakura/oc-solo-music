@@ -6,6 +6,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+@pytest.fixture(autouse=True)
+def no_suno_lookup(monkeypatch):
+    """테스트가 진짜 수노에 곡 정보를 묻지 않게 막습니다. 필요한 테스트는 따로 바꿔 끼웁니다."""
+    import app.suno_record
+
+    def offline(url, cover):
+        raise OSError("offline in tests")
+
+    monkeypatch.setattr(app.suno_record, "peek_clip", offline)
+
+
 @pytest.fixture
 def lib(tmp_path, monkeypatch):
     monkeypatch.setenv("SOLO_LIB", str(tmp_path))

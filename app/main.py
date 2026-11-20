@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import auth, library, messages, upload
+from . import auth, library, messages, suno_record, upload
 from .messages import msg
 from .serving import ranged_file
 
@@ -134,6 +134,25 @@ async def worker(kind: str) -> None:
 def persist(job: dict, **changes) -> None:
     job.update(changes)
     library.save_job(LIB, job, MAX_JOBS_KEPT)
+    if job["status"] not in ACTIVE:  # 다 끝난 곡은 보관함에 제 표지가 생기므로 미리 받은 표지를 치웁니다
+        job_cover(job["id"]).unlink(missing_ok=True)
+
+
+def job_cover(job_id: str) -> Path:
+    return LIB / f".job-{job_id}.jpg"  # 점으로 시작해 목록 동기화가 건너뜁니다
+
+
+peeks: set[asyncio.Task] = set()
+
+
+async def peek(job: dict) -> None:
+    """대기열에 넣자마자 제목과 표지를 받아 데크의 테이프에 붙입니다. 실패해도 녹음은 그대로 합니다."""
+    try:
+        info = await asyncio.to_thread(suno_record.peek_clip, job["url"], job_cover(job["id"]))
+    except Exception:
+        return
+    if job["status"] in ACTIVE:
+        persist(job, title=job["title"] or info["title"], cover=info["cover"])
 
 
 def enqueue(kind: str, key: str, title: str = "", **extra) -> bool:
@@ -145,6 +164,10 @@ def enqueue(kind: str, key: str, title: str = "", **extra) -> bool:
     jobs.append(job)
     persist(job)
     queues[kind].put_nowait(job)
+    if kind == "suno":
+        task = asyncio.get_running_loop().create_task(peek(job))
+        peeks.add(task)
+        task.add_done_callback(peeks.discard)
     del jobs[:-MAX_JOBS_KEPT]
     return True
 
@@ -306,6 +329,14 @@ async def api_cancel(job_id: str) -> dict:
     if process is not None:
         stop_recorder(process, job)
     return {"canceled": job_id}
+
+
+@app.get("/api/jobs/{job_id}/cover")
+def api_job_cover(job_id: str):
+    cover = job_cover(job_id) if re.fullmatch(r"[0-9a-f]{12}", job_id) else None
+    if cover is None or not cover.exists():
+        raise SoloError(404, "track.not_found")
+    return FileResponse(cover, headers={"Cache-Control": "private, max-age=3600"})
 
 
 @app.get("/api/jobs")

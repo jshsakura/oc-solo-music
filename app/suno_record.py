@@ -134,6 +134,17 @@ def fetch_clip(clip_id: str) -> dict:
         return json.load(response)
 
 
+def peek_clip(url: str, cover: Path) -> dict:
+    """녹음 전에 곡 제목과 표지를 미리 받아 둡니다. 공유 주소는 수노가 곡 주소로 넘겨 주는 곳을 따라갑니다."""
+    if "/song/" not in url:
+        request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            url = response.geturl()
+    clip = fetch_clip(clip_id_from_url(url))
+    save_cover(cover, clip.get("image_large_url") or clip.get("image_url") or "")
+    return {"title": (clip.get("title") or "")[:200], "cover": cover.exists()}
+
+
 def write_sidecar(target: Path, clip_id: str, clip: dict, duration: float) -> None:
     """플레이어가 제목·커버·태그를 보여줄 수 있게 곡 정보를 solo.db 에 남기고 표지를 받아 둡니다.
     서버가 재시작돼도 정보가 빠지지 않도록 녹음기가 끝까지 직접 저장합니다."""
@@ -217,6 +228,8 @@ async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
         expected = float(clip["metadata"]["duration"])
         target = out_dir / f"{slugify(clip.get('title') or '', clip_id)}.mp3"
         if target.exists() and not force:
+            # 앞서 녹음이 중간에 끊겨 표지만 빠진 곡이면 표지를 채워 둡니다.
+            save_cover(target, clip.get("image_large_url") or clip.get("image_url") or "")
             return Result(target.name, "skipped", msg("suno.exists"))
         with tempfile.TemporaryDirectory(dir=out_dir, prefix=".recording-") as tmp:
             webm = Path(tmp) / "capture.webm"

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:math';
 import 'dart:ui' show lerpDouble;
 
@@ -61,6 +63,9 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
 
   bool _swapping = false;
 
+  /// 판을 갈아 끼우는 동안 바늘을 받침으로 치워 둡니다.
+  bool _armAway = false;
+
   /// 판을 갈아 끼우는 동안 데크 밖(화면 전체)을 날아다니는 판입니다. 그동안 데크 위의 판은 숨깁니다.
   final _discKey = GlobalKey();
   OverlayEntry? _flying;
@@ -118,7 +123,9 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     _ticker.start();
   }
 
-  double get _armTarget => !_c.playing && _clock < _holdUntil
+  double get _armTarget => _armAway
+      ? armRest
+      : !_c.playing && _clock < _holdUntil
       ? _holdArm
       : armAngleFor(playing: _c.playing, progress: _c.progress);
 
@@ -217,17 +224,35 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     // 다음 곡이면 지금 판이 왼쪽으로, 이전 곡이면 오른쪽으로 나갑니다.
     final outX = dir > 0 ? -home.width - 40 : screen + 40;
     final inX = dir > 0 ? screen + 40 : -home.width - 40;
-
-    HapticFeedback.lightImpact();
-    await _fly(overlay, home, toX: outX, leaving: true, dir: dir);
-    await _c.skip(dir);
-    if (!mounted) return;
-    await _fly(overlay, home, toX: inX, leaving: false, dir: dir);
-    if (!mounted) return;
-    setState(() => _discHidden = false);
-    _rumbleT = 0;
-    _wake();
-    _swapping = false;
+    final wasPlaying = _c.playing;
+    var skipped = false;
+    try {
+      // 바늘을 먼저 들어 받침으로 치우고, 판을 바꾼 뒤 다시 올립니다.
+      _c.pause();
+      _armAway = true;
+      _wake();
+      HapticFeedback.lightImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 380));
+      if (!mounted) return;
+      await _fly(overlay, home, toX: outX, leaving: true, dir: dir);
+      skipped = true;
+      await _c.skip(dir, play: false);
+      if (!mounted) return;
+      await _fly(overlay, home, toX: inX, leaving: false, dir: dir);
+    } finally {
+      // 애니메이션이 어떻게 끝나든 곡은 반드시 넘기고 판과 바늘을 제자리로 돌립니다.
+      _flying?.remove();
+      _flying = null;
+      if (!skipped) unawaited(_c.skip(dir, play: false));
+      _swapping = false;
+      _armAway = false;
+      if (mounted) {
+        setState(() => _discHidden = false);
+        _rumbleT = 0;
+        _wake();
+      }
+      if (wasPlaying) _c.play();
+    }
   }
 
   /// 판 하나를 화면 위로 날립니다. leaving 이면 제자리에서 toX 로, 아니면 toX 에서 제자리로 옵니다.
@@ -292,7 +317,12 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     );
     overlay.insert(_flying!);
     if (!_discHidden) setState(() => _discHidden = true);
-    await _swap.forward(from: 0);
+    // 화면이 멈춰 틱이 오지 않아도 곡 넘기기가 묶이지 않도록 시간을 정해 둡니다.
+    await _swap
+        .forward(from: 0)
+        .orCancel
+        .timeout(_swap.duration! * 3)
+        .catchError((Object _) {});
     _flying?.remove();
     _flying = null;
   }

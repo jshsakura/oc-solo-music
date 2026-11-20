@@ -12,6 +12,10 @@ enum Repeat { off, all, one }
 /// 재생 대기열과 오디오 엔진을 들고 있습니다. 화면은 이것만 봅니다.
 class PlayerController extends ChangeNotifier {
   PlayerController(this.api) {
+    _listen();
+  }
+
+  void _listen() {
     _subs.add(
       _player.positionStream.listen((p) {
         position = p;
@@ -27,7 +31,8 @@ class PlayerController extends ChangeNotifier {
   }
 
   final Api api;
-  final AudioPlayer _player = AudioPlayer();
+  AudioPlayer _player = AudioPlayer();
+  bool _used = false;
   final List<StreamSubscription<Object?>> _subs = [];
   final Random _rng = Random();
   Timer? _sleepTimer;
@@ -83,6 +88,8 @@ class PlayerController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
+      if (kIsWeb && _used) await _freshPlayer();
+      _used = true;
       final auth = api.headers.isEmpty ? null : api.headers;
       await _player.setAudioSource(
         AudioSource.uri(
@@ -102,6 +109,20 @@ class PlayerController extends ChangeNotifier {
       error = e;
       notifyListeners();
     }
+  }
+
+  /// 웹 재생 엔진(just_audio_web 0.4.16)은 내부 재생목록을 같은 id 로 캐시해서
+  /// 두 번째 곡부터 첫 곡을 그대로 다시 틉니다. 웹에서는 곡마다 엔진을 새로 만듭니다.
+  Future<void> _freshPlayer() async {
+    final old = _player;
+    for (final s in _subs) {
+      await s.cancel();
+    }
+    _subs.clear();
+    _player = AudioPlayer();
+    _listen();
+    if (repeat == Repeat.one) await _player.setLoopMode(LoopMode.one);
+    unawaited(old.dispose());
   }
 
   void play() => unawaited(_player.play());
