@@ -125,6 +125,11 @@ abstract class S {
   String get homeLoadLabel;
   String get homeEmpty;
 
+  // 홈 보기
+  String get homeViewShelf;
+  String get homeViewCrate;
+  String homeShelfPlay(String title);
+
   // 서버 연결과 앱 받기
   String get serverTitle;
   String get serverIntro;
@@ -358,6 +363,14 @@ class _Ko extends S {
   String get homeLoadLabel => '턴테이블에 올리기';
   @override
   String get homeEmpty => '상자가 아직 비어 있습니다. 추가 탭에서 곡을 넣으면 여기에 꽂힙니다';
+
+  // 홈 보기
+  @override
+  String get homeViewShelf => '책장으로 보기';
+  @override
+  String get homeViewCrate => '판 상자로 보기';
+  @override
+  String homeShelfPlay(String title) => '$title 재생';
 
   @override
   String get serverTitle => '서버 연결';
@@ -649,6 +662,14 @@ class _En extends S {
   String get homeEmpty =>
       'The crate is empty for now. Songs you add in the Add tab land here.';
 
+  // 홈 보기
+  @override
+  String get homeViewShelf => 'Shelf view';
+  @override
+  String get homeViewCrate => 'Crate view';
+  @override
+  String homeShelfPlay(String title) => 'Play $title';
+
   @override
   String get serverTitle => 'Connect to a server';
   @override
@@ -933,6 +954,14 @@ class _Ja extends S {
   String get homeLoadLabel => 'ターンテーブルにのせる';
   @override
   String get homeEmpty => '箱はまだ空です。追加タブで曲を入れるとここに並びます';
+
+  // 홈 보기
+  @override
+  String get homeViewShelf => '棚で見る';
+  @override
+  String get homeViewCrate => '箱で見る';
+  @override
+  String homeShelfPlay(String title) => '$titleを再生';
 
   @override
   String get serverTitle => 'サーバーに接続';

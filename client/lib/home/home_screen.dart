@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
 import 'crate_math.dart';
 import 'crate_stage.dart';
+import 'shelf_grid.dart';
 
 String _crateName(S s, HomeCrate c) => switch (c) {
   HomeCrate.recent => s.homeCrateRecent,
@@ -14,6 +16,12 @@ String _crateName(S s, HomeCrate c) => switch (c) {
   HomeCrate.suno => s.crateSuno,
   HomeCrate.uploaded => s.crateUploaded,
 };
+
+/// 홈의 두 보기입니다. 판 상자를 넘기거나, 책장에 세운 표지를 한눈에 봅니다.
+enum HomeView { crate, shelf }
+
+/// 기기마다 마지막으로 고른 보기를 기억하는 키입니다.
+const homeViewKey = 'home.view';
 
 /// 판 상자를 위아래로 넘겨 고르는 홈입니다. 맨 앞 판을 누르면 레코드가 빠져나오고,
 /// 그 위의 올리기를 누르면 그 분류 전체를 대기열로 올려 그 곡부터 재생합니다.
@@ -50,6 +58,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   );
 
   HomeCrate _crate = HomeCrate.recent;
+  HomeView _view = HomeView.crate;
+
+  // 저장해 둔 보기를 되살릴 때는 바꾸는 움직임을 보이지 않습니다.
+  bool _userSwitched = false;
   bool _out = false;
   int _front = 0;
   double _dragStart = 0;
@@ -57,6 +69,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   List<Track> get _shown => crateTracks(widget.tracks, _crate);
   bool get _still => MediaQuery.disableAnimationsOf(context);
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreView();
+  }
+
+  Future<void> _restoreView() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(homeViewKey);
+      final view = HomeView.values.where((v) => v.name == saved).firstOrNull;
+      if (view != null && mounted && !_userSwitched) {
+        setState(() => _view = view);
+      }
+    } catch (_) {
+      // 기억해 둔 보기를 못 읽으면 판 상자로 시작합니다.
+    }
+  }
+
+  Future<void> _toggleView() async {
+    HapticFeedback.selectionClick();
+    final next = _view == HomeView.crate ? HomeView.shelf : HomeView.crate;
+    _pos.stop();
+    _setOut(false);
+    setState(() {
+      _userSwitched = true;
+      _view = next;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(homeViewKey, next.name);
+    } catch (_) {
+      // 저장하지 못해도 이번에 고른 보기는 그대로 씁니다.
+    }
+  }
+
+  void _playFrom(int index) {
+    final list = _shown;
+    if (index < 0 || index >= list.length) return;
+    widget.onPlay(list, index);
+  }
 
   @override
   void didUpdateWidget(HomeScreen old) {
@@ -168,18 +222,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   ),
                   style: letterStyle(30),
                 ),
-                AnimatedBuilder(
-                  animation: _pos,
-                  builder: (_, _) => Text(
-                    shown.isEmpty
-                        ? '0'
-                        : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Palette.faint,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedBuilder(
+                      animation: _pos,
+                      builder: (_, _) => Text(
+                        shown.isEmpty
+                            ? '0'
+                            : _view == HomeView.shelf
+                            ? '${shown.length}'
+                            : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Palette.faint,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    _ViewToggle(
+                      view: _view,
+                      label: _view == HomeView.crate
+                          ? s.homeViewShelf
+                          : s.homeViewCrate,
+                      onTap: _toggleView,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -202,7 +271,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
           const SizedBox(height: 8),
-          Expanded(child: _stage(s, shown)),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: _still || !_userSwitched
+                  ? Duration.zero
+                  : const Duration(milliseconds: 320),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, a) => FadeTransition(
+                opacity: a,
+                child: ScaleTransition(
+                  scale: Tween(begin: .96, end: 1.0).animate(a),
+                  alignment: Alignment.topCenter,
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(
+                key: ValueKey(_view),
+                child: _stage(s, shown),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -219,6 +308,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         : shown.isEmpty
         ? s.emptyCrate
         : null;
+    if (_view == HomeView.shelf) {
+      if (message != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: Palette.secondary),
+            ),
+          ),
+        );
+      }
+      return ShelfGrid(
+        key: ValueKey(_crate),
+        api: widget.api,
+        tracks: shown,
+        playLabel: s.homeShelfPlay,
+        onPlay: _playFrom,
+      );
+    }
     return GestureDetector(
       key: const Key('home-stage'),
       behavior: HitTestBehavior.opaque,
@@ -287,4 +397,62 @@ class _Chip extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// 판 상자와 책장 보기를 바꾸는 둥근 단추입니다. 지금 보기가 아닌 쪽의 그림을 보여줍니다.
+class _ViewToggle extends StatelessWidget {
+  const _ViewToggle({
+    required this.view,
+    required this.label,
+    required this.onTap,
+  });
+
+  final HomeView view;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.disableAnimationsOf(context);
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: GestureDetector(
+          key: const Key('home-view-toggle'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Palette.surface,
+              shape: BoxShape.circle,
+              border: Border.all(color: Palette.line),
+            ),
+            alignment: Alignment.center,
+            child: AnimatedSwitcher(
+              duration: still
+                  ? Duration.zero
+                  : const Duration(milliseconds: 220),
+              transitionBuilder: (child, a) => RotationTransition(
+                turns: Tween(begin: -.12, end: 0.0).animate(a),
+                child: ScaleTransition(scale: a, child: child),
+              ),
+              child: Icon(
+                view == HomeView.crate
+                    ? Icons.grid_view_rounded
+                    : Icons.layers_rounded,
+                key: ValueKey(view),
+                size: 18,
+                color: Palette.ink,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
