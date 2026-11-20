@@ -48,6 +48,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   double _rumbleT = rumbleSecs;
   bool _down = false;
   bool _armDragging = false;
+  bool _snapped = false;
   double _holdArm = armRest, _holdUntil = 0;
 
   double? _lastAngle;
@@ -269,25 +270,35 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   }
 
   void _armUpdate(Offset local) {
-    _armDragging = true;
-    _arm = _armAngleAt(local);
+    if (!_armDragging) setState(() => _armDragging = true);
+    final raw = _armAngleAt(local);
+    final at = armDropFraction(raw);
+    final snapped = at == 0;
+    // 처음 근처에 들고 오면 바늘이 바깥 홈에 딸깍 붙습니다.
+    _arm = snapped ? armStart : raw;
     _armVel = 0;
-    final onRecord = _arm >= armStart;
-    if (onRecord) {
-      final secs = min(1.0, (_arm - armStart) / armSpan) * _c.durationSecs;
+    if (at != null) {
+      final secs = at * _c.durationSecs;
       _c.scrubTo(secs);
-      _scrubTick(secs);
+      if (snapped && !_snapped) {
+        HapticFeedback.mediumImpact();
+      } else if (!snapped) {
+        _scrubTick(secs);
+      }
     } else {
       _tickCell = null;
     }
+    _snapped = snapped;
     _wake();
+    final s = S.of(context);
     widget.onHint(
-      onRecord ? S.of(context).playFromHere : S.of(context).offRecord,
+      snapped ? s.playFromStart : (at != null ? s.playFromHere : s.offRecord),
     );
   }
 
   void _armEnd() {
-    _armDragging = false;
+    if (_armDragging) setState(() => _armDragging = false);
+    _snapped = false;
     _tickCell = null;
     final target = _c.scrubbing;
     _c.scrubTo(null);
@@ -380,6 +391,28 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
                     child: CustomPaint(painter: _ArmPainter(_lift)),
                   );
                 },
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _armDragging ? 1 : 0,
+                duration: Duration(milliseconds: _armDragging ? 140 : 360),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _frame,
+                  builder: (context, _, _) => CustomPaint(
+                    painter: _DropGuide(
+                      pivot: _pivot,
+                      arm: _arm,
+                      snapped: _snapped,
+                      startLabel: '${S.of(context).guideStart} 0:00',
+                      endLabel:
+                          '${S.of(context).guideEnd} ${formatTime(_c.durationSecs)}',
+                      nowLabel: formatTime(_c.shownSecs),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -654,4 +687,156 @@ class _Pivot extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// 바늘을 들고 있는 동안 판 위에 바늘 끝이 지나는 길을 그립니다.
+/// 처음(바깥 홈)과 끝(안쪽 홈)에 표시를 두고, 지금 자리의 시간을 바늘 끝 옆에 띄웁니다.
+class _DropGuide extends CustomPainter {
+  _DropGuide({
+    required this.pivot,
+    required this.arm,
+    required this.snapped,
+    required this.startLabel,
+    required this.endLabel,
+    required this.nowLabel,
+  });
+
+  final Offset pivot;
+  final double arm;
+  final bool snapped;
+  final String startLabel, endLabel, nowLabel;
+
+  static const _rad = pi / 180;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCircle(center: pivot, radius: armTipReach);
+    // 각도 θ 의 바늘 끝은 축에서 (θ + 90)도 방향에 있습니다.
+    final from = (armStart + 90) * _rad;
+    final onRecord = arm >= armStart;
+    canvas.drawArc(
+      rect,
+      from,
+      armSpan * _rad,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 12
+        ..color = Palette.butter.withValues(alpha: 0.28),
+    );
+    if (onRecord && !snapped) {
+      canvas.drawArc(
+        rect,
+        from,
+        min(arm - armStart, armSpan) * _rad,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeWidth = 5
+          ..color = Palette.butter,
+      );
+    }
+
+    final start = armTip(pivot, armStart);
+    final end = armTip(pivot, armStart + armSpan);
+    if (snapped) {
+      canvas.drawCircle(
+        start,
+        16,
+        Paint()..color = Palette.butter.withValues(alpha: 0.45),
+      );
+    }
+    canvas
+      ..drawCircle(start, snapped ? 9 : 7, Paint()..color = Palette.butter)
+      ..drawCircle(
+        start,
+        snapped ? 9 : 7,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Palette.ink,
+      )
+      ..drawCircle(end, 5.5, Paint()..color = Palette.surface)
+      ..drawCircle(end, 3.5, Paint()..color = Palette.ink);
+
+    _pill(
+      canvas,
+      startLabel,
+      start + const Offset(14, 10),
+      Palette.butter,
+      Palette.ink,
+      bold: snapped,
+    );
+    _pill(
+      canvas,
+      endLabel,
+      end + const Offset(-12, 12),
+      Palette.surface,
+      Palette.ink,
+      alignRight: true,
+    );
+    if (onRecord && !snapped) {
+      _pill(
+        canvas,
+        nowLabel,
+        armTip(pivot, arm) + const Offset(-14, -30),
+        Palette.ink,
+        Palette.butter,
+        alignRight: true,
+        bold: true,
+      );
+    }
+  }
+
+  void _pill(
+    Canvas canvas,
+    String text,
+    Offset at,
+    Color bg,
+    Color fg, {
+    bool alignRight = false,
+    bool bold = false,
+  }) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: fg,
+          fontSize: 11.5,
+          fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final box = Rect.fromLTWH(
+      alignRight ? at.dx - tp.width - 16 : at.dx,
+      at.dy,
+      tp.width + 16,
+      tp.height + 8,
+    );
+    canvas
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          box.shift(const Offset(0, 1.5)),
+          const Radius.circular(100),
+        ),
+        Paint()..color = const Color(0x2616161A),
+      )
+      ..drawRRect(
+        RRect.fromRectAndRadius(box, const Radius.circular(100)),
+        Paint()..color = bg,
+      );
+    tp.paint(canvas, box.topLeft + const Offset(8, 4));
+  }
+
+  @override
+  bool shouldRepaint(_DropGuide old) =>
+      old.arm != arm ||
+      old.snapped != snapped ||
+      old.nowLabel != nowLabel ||
+      old.startLabel != startLabel ||
+      old.endLabel != endLabel;
 }

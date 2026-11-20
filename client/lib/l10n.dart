@@ -61,6 +61,9 @@ abstract class S {
   String get tapToPlay;
   String get playFromHere;
   String get offRecord;
+  String get playFromStart;
+  String get guideStart;
+  String get guideEnd;
   String get armLifted;
   String get cannotOpen;
 
@@ -235,6 +238,12 @@ class _Ko extends S {
   String get playFromHere => '여기부터 재생합니다';
   @override
   String get offRecord => '판 밖입니다';
+  @override
+  String get playFromStart => '처음부터 재생합니다';
+  @override
+  String get guideStart => '처음';
+  @override
+  String get guideEnd => '끝';
   @override
   String get armLifted => '바늘을 올렸습니다';
   @override
@@ -512,6 +521,12 @@ class _En extends S {
   String get playFromHere => 'Playing from here';
   @override
   String get offRecord => 'Off the record';
+  @override
+  String get playFromStart => 'Playing from the start';
+  @override
+  String get guideStart => 'Start';
+  @override
+  String get guideEnd => 'End';
   @override
   String get armLifted => 'Needle lifted';
   @override
@@ -798,6 +813,12 @@ class _Ja extends S {
   String get playFromHere => 'ここから再生します';
   @override
   String get offRecord => 'レコードの外です';
+  @override
+  String get playFromStart => '最初から再生します';
+  @override
+  String get guideStart => '最初';
+  @override
+  String get guideEnd => '最後';
   @override
   String get armLifted => '針を上げました';
   @override

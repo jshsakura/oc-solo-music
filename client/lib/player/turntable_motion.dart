@@ -12,6 +12,26 @@ const spinUpSecs = 0.8, spinDownSecs = 1.0;
 /// 바늘 각도(도)입니다. 받침에 쉬는 자리, 판 바깥 홈, 곡 끝까지 들어가는 폭, 손으로 끌 수 있는 끝입니다.
 const armRest = 0.0, armStart = 20.0, armSpan = 18.0, armMax = 40.0;
 
+/// 바늘 끝(헤드의 노란 점)이 받침 축에서 떨어진 거리입니다.
+const armTipReach = 207.0;
+
+/// 바깥 홈 앞 이만큼(도)과 바깥 홈 안쪽 이만큼에 놓으면 곡 처음(0:00)에 붙습니다.
+/// 손끝으로 바깥 홈을 맞추기 어려워서, 받침에서 조금만 끌어 대충 판 쪽에 놓아도 처음부터 돕니다.
+const startSnapBefore = 13.0, startSnapAfter = 2.0;
+
+/// 바늘 각도(도)일 때 바늘 끝이 놓이는 자리입니다.
+Offset armTip(Offset pivot, double angleDeg) {
+  final a = angleDeg * pi / 180;
+  return pivot + Offset(-armTipReach * sin(a), armTipReach * cos(a));
+}
+
+/// 손으로 옮긴 바늘 각도를 곡의 자리(0~1)로 바꿉니다. 판 밖이면 null, 처음 근처면 0 에 붙습니다.
+double? armDropFraction(double angleDeg) {
+  if (angleDeg < armStart - startSnapBefore) return null;
+  if (angleDeg <= armStart + startSnapAfter) return 0;
+  return min(1.0, (angleDeg - armStart) / armSpan);
+}
+
 /// 바늘 내려앉음이 끝나고 판이 떨리는 시간입니다.
 const rumbleSecs = 0.35;
 
