@@ -41,7 +41,7 @@ ACCESS = (auth.AccessVerifier(os.environ["SOLO_ACCESS_TEAM"], os.environ["SOLO_A
 PUBLIC_URL = os.environ.get("SOLO_PUBLIC_URL", "").rstrip("/")
 
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-SUNO_URL = re.compile(rf"https://(www\.)?suno\.com/(song/{UUID}|s/[A-Za-z0-9]+)/?")
+SUNO_URL = re.compile(rf"https://(www\.)?suno\.com/(song/{UUID}|hook/{UUID}|s/[A-Za-z0-9]+)/?")
 RESULT_LINE = re.compile(r"^\[(\w+)\] (.+?): (.*)$")
 PROGRESS_LINE = re.compile(r"^\[progress\] (\d+(?:\.\d+)?)$")
 MAX_JOBS_KEPT = 30
