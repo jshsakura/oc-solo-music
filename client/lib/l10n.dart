@@ -204,21 +204,21 @@ class _Ko extends S {
   @override
   String get crateUploaded => '올린 곡';
   @override
-  String libraryCount(int records, int likes) => '판 $records장 · 좋아요 $likes';
+  String libraryCount(int records, int likes) => '음악 $records곡 · 좋아요 $likes';
   @override
   String get reload => '다시 불러옵니다';
   @override
-  String get emptyCrate => '이 분류에는 판이 없습니다';
+  String get emptyCrate => '이 분류에는 음악이 없습니다';
   @override
   String get nowPlaying => '지금 재생';
   @override
-  String get hintStart => '판을 톡 치거나 바늘을 내려 재생합니다';
+  String get hintStart => '턴테이블을 톡 치거나 바늘을 내려 재생합니다';
   @override
   String get hintRestart => '처음으로 돌렸습니다';
   @override
-  String get hintPrevRecord => '이전 판을 다시 올립니다';
+  String get hintPrevRecord => '이전 곡을 다시 올립니다';
   @override
-  String get hintNextRecord => '다음 판을 올립니다';
+  String get hintNextRecord => '다음 곡을 올립니다';
   @override
   String get noTrack => '곡이 없습니다';
   @override
@@ -238,11 +238,11 @@ class _Ko extends S {
   @override
   String get paused => '멈췄습니다';
   @override
-  String get tapToPlay => '판을 톡 치면 재생합니다';
+  String get tapToPlay => '턴테이블을 톡 치면 재생합니다';
   @override
   String get playFromHere => '여기부터 재생합니다';
   @override
-  String get offRecord => '판 밖입니다';
+  String get offRecord => '재생 범위 밖입니다';
   @override
   String get playFromStart => '처음부터 재생합니다';
   @override
@@ -344,7 +344,7 @@ class _Ko extends S {
   @override
   String get stopJob => '이 작업 멈추기';
   @override
-  String get homeLater => '판 상자를 위아래로 넘기는 화면을 다음 단계에서 만듭니다';
+  String get homeLater => '음악 상자를 위아래로 넘기는 화면을 다음 단계에서 만듭니다';
   @override
   String get ownMusicNote => 'Solo 에는 내가 만든 곡과 정당하게 가진 곡만 담습니다';
   @override
@@ -356,7 +356,7 @@ class _Ko extends S {
   @override
   String get homeHint => '위아래로 넘기고, 눌러서 꺼냅니다';
   @override
-  String get homeHintOut => '판을 누르면 턴테이블에 올라갑니다';
+  String get homeHintOut => '음악을 누르면 턴테이블에 올라갑니다';
   @override
   String get homeLoad => '올리기';
   @override
@@ -368,7 +368,7 @@ class _Ko extends S {
   @override
   String get homeViewShelf => '책장으로 보기';
   @override
-  String get homeViewCrate => '판 상자로 보기';
+  String get homeViewCrate => '상자로 보기';
   @override
   String homeShelfPlay(String title) => '$title 재생';
 
