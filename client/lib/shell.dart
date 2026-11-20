@@ -17,7 +17,7 @@ import 'widgets/motion_math.dart';
 enum AppTab { home, library, player, add, connect }
 
 (IconData, String) _tabOf(S s, AppTab t) => switch (t) {
-  AppTab.home => (Icons.home_outlined, s.tabHome),
+  AppTab.home => (Icons.inventory_2_outlined, s.tabHome),
   AppTab.library => (Icons.album_outlined, s.tabLibrary),
   AppTab.player => (Icons.radio_button_checked_rounded, s.tabPlayer),
   AppTab.add => (Icons.add_circle_outline_rounded, s.tabAdd),

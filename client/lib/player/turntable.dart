@@ -59,9 +59,12 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   String? _trackId;
   bool _wasPlaying = false;
 
-  double _swapFrom = 0, _swapTo = 0;
-  Curve _swapCurve = Curves.linear;
   bool _swapping = false;
+
+  /// 판을 갈아 끼우는 동안 데크 밖(화면 전체)을 날아다니는 판입니다. 그동안 데크 위의 판은 숨깁니다.
+  final _discKey = GlobalKey();
+  OverlayEntry? _flying;
+  bool _discHidden = false;
 
   PlayerController get _c => widget.ctl;
 
@@ -90,6 +93,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   void dispose() {
     _c.removeListener(_onCtl);
     _ticker.dispose();
+    _flying?.remove();
     _swap.dispose();
     _frame.dispose();
     super.dispose();
@@ -197,24 +201,101 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     _tickCell = cell;
   }
 
-  /// 판을 갈아 끼웁니다. 지금 판이 반대쪽으로 날아가고 새 판이 들어와 앉습니다.
+  /// 판을 갈아 끼웁니다. 지금 판이 들려 올라 화면 끝까지 날아가고,
+  /// 새 판이 반대쪽 화면 끝에서 날아와 플래터에 툭 내려앉습니다.
   Future<void> swap(int dir) async {
     if (_swapping || _c.queue.isEmpty) return;
+    final box = _discKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (_reduce || box == null || overlay == null || !box.attached) {
+      await _c.skip(dir);
+      return;
+    }
     _swapping = true;
-    _swapFrom = 0;
-    _swapTo = -dir * 380;
-    _swapCurve = Curves.easeInCubic;
-    await _swap.forward(from: 0);
+    final home = box.localToGlobal(Offset.zero) & box.size;
+    final screen = MediaQuery.sizeOf(context).width;
+    // 다음 곡이면 지금 판이 왼쪽으로, 이전 곡이면 오른쪽으로 나갑니다.
+    final outX = dir > 0 ? -home.width - 40 : screen + 40;
+    final inX = dir > 0 ? screen + 40 : -home.width - 40;
+
+    HapticFeedback.lightImpact();
+    await _fly(overlay, home, toX: outX, leaving: true, dir: dir);
     await _c.skip(dir);
-    _swapFrom = dir * 380;
-    _swapTo = 0;
-    _swapCurve = Curves.easeOutBack;
-    await _swap.forward(from: 0);
+    if (!mounted) return;
+    await _fly(overlay, home, toX: inX, leaving: false, dir: dir);
+    if (!mounted) return;
+    setState(() => _discHidden = false);
+    _rumbleT = 0;
+    _wake();
     _swapping = false;
   }
 
-  double get _swapX =>
-      lerpDouble(_swapFrom, _swapTo, _swapCurve.transform(_swap.value))!;
+  /// 판 하나를 화면 위로 날립니다. leaving 이면 제자리에서 toX 로, 아니면 toX 에서 제자리로 옵니다.
+  Future<void> _fly(
+    OverlayState overlay,
+    Rect home, {
+    required double toX,
+    required bool leaving,
+    required int dir,
+  }) async {
+    final track = _c.current;
+    _swap.duration = Duration(milliseconds: leaving ? 460 : 620);
+    _flying?.remove();
+    _flying = OverlayEntry(
+      builder: (context) => AnimatedBuilder(
+        animation: _swap,
+        builder: (context, child) {
+          final t = _swap.value;
+          final e = leaving
+              ? Curves.easeInCubic.transform(t)
+              : Curves.easeOutCubic.transform(t);
+          // 나갈 때는 0→1, 들어올 때는 1→0 으로 제자리에서 멀어진 정도입니다.
+          final away = leaving ? e : 1 - e;
+          final x = lerpDouble(home.left, toX, away)!;
+          // 손으로 들어 올린 판처럼 가운데서 위로 둥글게 떴다가 내려옵니다.
+          final y = home.top - 70 * sin(pi * away.clamp(0.0, 1.0));
+          final lift = leaving
+              ? Curves.easeOut.transform((t * 3).clamp(0.0, 1.0))
+              : 1 - Curves.easeIn.transform(((t - 0.7) / 0.3).clamp(0.0, 1.0));
+          final scale = 1 + 0.07 * lift;
+          final spin = -dir * 160 * away * pi / 180;
+          return Positioned(
+            left: x,
+            top: y,
+            width: home.width,
+            height: home.height,
+            child: IgnorePointer(
+              child: Transform.rotate(
+                angle: spin,
+                child: Transform.scale(
+                  scale: scale,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0x3316161A),
+                          blurRadius: 10 + 26 * lift,
+                          offset: Offset(0, 4 + 18 * lift),
+                        ),
+                      ],
+                    ),
+                    child: child,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+        child: _Disc(motion: this, track: track, api: _c.api),
+      ),
+    );
+    overlay.insert(_flying!);
+    if (!_discHidden) setState(() => _discHidden = true);
+    await _swap.forward(from: 0);
+    _flying?.remove();
+    _flying = null;
+  }
 
   double _angleAt(Offset local) =>
       atan2(local.dy - _disc / 2, local.dx - _disc / 2) * 180 / pi;
@@ -347,18 +428,9 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
             top: _discTop,
             width: _disc,
             height: _disc,
-            child: AnimatedBuilder(
-              animation: _swap,
-              builder: (context, child) {
-                final sx = _swapX;
-                return Transform.translate(
-                  offset: Offset(sx, 0),
-                  child: Transform.rotate(
-                    angle: sx / 8 * pi / 180,
-                    child: child,
-                  ),
-                );
-              },
+            child: Opacity(
+              key: _discKey,
+              opacity: _discHidden ? 0 : 1,
               child: GestureDetector(
                 onTap: () {
                   _c.toggle();
