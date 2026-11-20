@@ -122,6 +122,21 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "No Android app is available yet",
         "ja": "ダウンロードできる Android アプリはまだありません",
     },
+    "auth.owner_only": {
+        "ko": "관리자만 할 수 있습니다",
+        "en": "Only the owner can do this",
+        "ja": "管理者だけが操作できます",
+    },
+    "pair.invalid": {
+        "ko": "QR 코드가 맞지 않거나 시간이 지났습니다. 웹에서 새 QR 을 띄워 주세요",
+        "en": "This QR code is invalid or expired. Show a new one on the web",
+        "ja": "QR コードが正しくないか期限切れです。Web で新しい QR を表示してください",
+    },
+    "device.not_found": {
+        "ko": "기기를 찾지 못했습니다",
+        "en": "Device not found",
+        "ja": "端末が見つかりませんでした",
+    },
     "auth.required": {
         "ko": "인증이 필요합니다",
         "en": "Authentication required",

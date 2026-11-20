@@ -127,6 +127,36 @@ abstract class S {
   String get androidAppNote;
   String get androidGet;
   String androidBuild(String version, String size);
+  // 기기 연결과 관리
+  String get pairScan;
+  String get pairScanHint;
+  String get pairManual;
+  String get pairCameraDenied;
+  String get pairBadCode;
+  String get pairConnecting;
+  String get pairShowTitle;
+  String get pairNew;
+  String get devicesTitle;
+  String get devicesNote;
+  String get devicesNone;
+  String get deviceAdd;
+  String get deviceRemove;
+  String get cancel;
+  String get accountTitle;
+  String get youtubeTitle;
+  String get youtubeOn;
+  String get youtubeOff;
+  String get justNow;
+  String get serverSection;
+  String get appSection;
+  String pairExpiresIn(int secs);
+  String pairDone(String name);
+  String deviceRemoveAsk(String name);
+  String seenAgo(String when);
+  String minutesAgo(int n);
+  String hoursAgo(int n);
+  String daysAgo(int n);
+  String signedInAs(String who);
   String apiFail(ApiFail what);
 
   /// 오류를 한 줄로 바꿉니다. 서버가 화면 언어로 사유를 보냈으면 그 사유를 그대로 씁니다.
@@ -316,6 +346,66 @@ class _Ko extends S {
   String get androidGet => '앱 받기';
   @override
   String androidBuild(String version, String size) => '버전 $version · $size';
+  // 기기 연결과 관리
+  @override
+  String get pairScan => 'QR로 연결';
+  @override
+  String get pairScanHint => '웹의 연결 탭에 뜬 QR을 비춥니다';
+  @override
+  String get pairManual => '주소로 직접 연결';
+  @override
+  String get pairCameraDenied => '카메라를 쓸 수 없습니다. 설정에서 카메라 권한을 켜 주세요';
+  @override
+  String get pairBadCode => 'Solo 연결 QR이 아닙니다';
+  @override
+  String get pairConnecting => '연결하는 중입니다';
+  @override
+  String get pairShowTitle => '앱에서 이 QR을 찍습니다';
+  @override
+  String get pairNew => '새 QR';
+  @override
+  String get devicesTitle => '기기';
+  @override
+  String get devicesNote => 'QR로 연결한 폰과 컴퓨터입니다';
+  @override
+  String get devicesNone => '아직 연결한 기기가 없습니다';
+  @override
+  String get deviceAdd => '새 기기 연결';
+  @override
+  String get deviceRemove => '연결 끊기';
+  @override
+  String get cancel => '취소';
+  @override
+  String get accountTitle => '계정';
+  @override
+  String get youtubeTitle => '유튜브 계정';
+  @override
+  String get youtubeOn => '로그인되어 있어 막힌 곡도 받습니다';
+  @override
+  String get youtubeOff => '로그인하지 않아 일부 곡은 받지 못합니다';
+  @override
+  String get justNow => '방금';
+  @override
+  String get serverSection => '서버';
+  @override
+  String get appSection => '앱';
+  @override
+  String pairExpiresIn(int secs) => '$secs초 뒤에 사라집니다';
+  @override
+  String pairDone(String name) => '$name 을(를) 연결했습니다';
+  @override
+  String deviceRemoveAsk(String name) =>
+      '$name 의 연결을 끊습니다. 다시 쓰려면 QR로 새로 연결해야 합니다';
+  @override
+  String seenAgo(String when) => '마지막 접속 $when';
+  @override
+  String minutesAgo(int n) => '$n분 전';
+  @override
+  String hoursAgo(int n) => '$n시간 전';
+  @override
+  String daysAgo(int n) => '$n일 전';
+  @override
+  String signedInAs(String who) => '$who 로 들어와 있습니다';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => '곡 목록을 받지 못했습니다',
@@ -330,6 +420,9 @@ class _Ko extends S {
     ApiFail.archive => '뺀 곡 목록을 받지 못했습니다',
     ApiFail.youtubeStatus => '유튜브 상태를 받지 못했습니다',
     ApiFail.app => '앱 정보를 받지 못했습니다',
+    ApiFail.me => '로그인 정보를 받지 못했습니다',
+    ApiFail.pair => '기기를 연결하지 못했습니다',
+    ApiFail.devices => '기기 목록을 받지 못했습니다',
   };
 }
 
@@ -520,6 +613,67 @@ class _En extends S {
   @override
   String androidBuild(String version, String size) =>
       'Version $version · $size';
+  // 기기 연결과 관리
+  @override
+  String get pairScan => 'Connect with QR';
+  @override
+  String get pairScanHint => 'Point at the QR on the web Connect tab';
+  @override
+  String get pairManual => 'Connect by address';
+  @override
+  String get pairCameraDenied =>
+      'Camera is unavailable. Allow camera access in settings';
+  @override
+  String get pairBadCode => 'This is not a Solo pairing QR';
+  @override
+  String get pairConnecting => 'Connecting';
+  @override
+  String get pairShowTitle => 'Scan this QR in the app';
+  @override
+  String get pairNew => 'New QR';
+  @override
+  String get devicesTitle => 'Devices';
+  @override
+  String get devicesNote => 'Phones and computers paired with a QR';
+  @override
+  String get devicesNone => 'No devices paired yet';
+  @override
+  String get deviceAdd => 'Pair a device';
+  @override
+  String get deviceRemove => 'Unpair';
+  @override
+  String get cancel => 'Cancel';
+  @override
+  String get accountTitle => 'Account';
+  @override
+  String get youtubeTitle => 'YouTube account';
+  @override
+  String get youtubeOn => 'Signed in, so restricted songs download too';
+  @override
+  String get youtubeOff => 'Not signed in, so some songs cannot be downloaded';
+  @override
+  String get justNow => 'just now';
+  @override
+  String get serverSection => 'Server';
+  @override
+  String get appSection => 'App';
+  @override
+  String pairExpiresIn(int secs) => 'Expires in ${secs}s';
+  @override
+  String pairDone(String name) => 'Paired $name';
+  @override
+  String deviceRemoveAsk(String name) =>
+      'Unpair $name? It will need a new QR to connect again';
+  @override
+  String seenAgo(String when) => 'Last seen $when';
+  @override
+  String minutesAgo(int n) => '${n}m ago';
+  @override
+  String hoursAgo(int n) => '${n}h ago';
+  @override
+  String daysAgo(int n) => '${n}d ago';
+  @override
+  String signedInAs(String who) => 'Signed in as $who';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => 'Could not load your songs',
@@ -534,6 +688,9 @@ class _En extends S {
     ApiFail.archive => 'Could not load removed songs',
     ApiFail.youtubeStatus => 'Could not check YouTube',
     ApiFail.app => 'Could not load the app details',
+    ApiFail.me => 'Could not check who is signed in',
+    ApiFail.pair => 'Could not pair the device',
+    ApiFail.devices => 'Could not load the devices',
   };
 }
 
@@ -714,6 +871,65 @@ class _Ja extends S {
   String get androidGet => 'アプリを入手';
   @override
   String androidBuild(String version, String size) => 'バージョン $version · $size';
+  // 기기 연결과 관리
+  @override
+  String get pairScan => 'QR で接続';
+  @override
+  String get pairScanHint => 'Web の連携タブに出た QR を映します';
+  @override
+  String get pairManual => 'アドレスで接続';
+  @override
+  String get pairCameraDenied => 'カメラを使えません。設定でカメラを許可してください';
+  @override
+  String get pairBadCode => 'Solo の接続 QR ではありません';
+  @override
+  String get pairConnecting => '接続しています';
+  @override
+  String get pairShowTitle => 'アプリでこの QR を読み取ります';
+  @override
+  String get pairNew => '新しい QR';
+  @override
+  String get devicesTitle => '端末';
+  @override
+  String get devicesNote => 'QR で接続したスマホとパソコンです';
+  @override
+  String get devicesNone => '接続した端末はまだありません';
+  @override
+  String get deviceAdd => '端末を追加';
+  @override
+  String get deviceRemove => '接続を解除';
+  @override
+  String get cancel => 'キャンセル';
+  @override
+  String get accountTitle => 'アカウント';
+  @override
+  String get youtubeTitle => 'YouTube アカウント';
+  @override
+  String get youtubeOn => 'ログイン済みなので制限のある曲も保存できます';
+  @override
+  String get youtubeOff => 'ログインしていないため一部の曲は保存できません';
+  @override
+  String get justNow => 'たった今';
+  @override
+  String get serverSection => 'サーバー';
+  @override
+  String get appSection => 'アプリ';
+  @override
+  String pairExpiresIn(int secs) => '$secs 秒後に消えます';
+  @override
+  String pairDone(String name) => '$name を接続しました';
+  @override
+  String deviceRemoveAsk(String name) => '$name の接続を解除します。再び使うには QR で接続し直します';
+  @override
+  String seenAgo(String when) => '最終接続 $when';
+  @override
+  String minutesAgo(int n) => '$n 分前';
+  @override
+  String hoursAgo(int n) => '$n 時間前';
+  @override
+  String daysAgo(int n) => '$n 日前';
+  @override
+  String signedInAs(String who) => '$who でログインしています';
   @override
   String apiFail(ApiFail what) => switch (what) {
     ApiFail.tracks => '曲の一覧を読み込めませんでした',
@@ -728,5 +944,8 @@ class _Ja extends S {
     ApiFail.archive => '外した曲の一覧を読み込めませんでした',
     ApiFail.youtubeStatus => 'YouTube の状態を確認できませんでした',
     ApiFail.app => 'アプリの情報を取得できませんでした',
+    ApiFail.me => 'ログイン情報を取得できませんでした',
+    ApiFail.pair => '端末を接続できませんでした',
+    ApiFail.devices => '端末の一覧を取得できませんでした',
   };
 }

@@ -10,8 +10,9 @@ RUN flutter pub get
 COPY client/ ./
 RUN flutter build web --release --base-href /
 
-# Docker Hub 익명 pull 제한(429) 회피용 AWS Public ECR 미러. 이 서버의 다른 프로젝트와 같은 관례다.
-FROM public.ecr.aws/docker/library/python:3.12-slim
+# Docker Hub 익명 pull 제한(429)을 피하려고 구글의 Docker Hub 미러를 씁니다.
+# AWS Public ECR 미러는 2026-11-20 에 CI 에서 "Data limit exceeded" 로 막힌 적이 있습니다.
+FROM mirror.gcr.io/library/python:3.12-slim
 
 ARG VERSION=dev
 # 패키지를 저장소에 묶어 저장소와 같은 공개 범위를 따르게 합니다. 서버가 로그인 없이 이미지를 받습니다.

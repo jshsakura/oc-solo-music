@@ -119,23 +119,186 @@ class _ShellState extends State<Shell> {
     ),
   };
 
+  /// 이 폭부터 옆 메뉴를 씁니다(태블릿 가로, 데스크톱).
+  static const sideFrom = 900.0;
+
+  /// 이 폭부터는 턴테이블을 오른쪽에 붙여 두고 다른 화면을 함께 봅니다.
+  static const pinnedPlayerFrom = 1180.0;
+
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final side = width >= sideFrom;
+    final pinned = width >= pinnedPlayerFrom;
+    final tabs = [
+      for (final t in AppTab.values)
+        if (!(pinned && t == AppTab.player)) t,
+    ];
+    final current = pinned && _tab == AppTab.player ? AppTab.library : _tab;
+    final pages = IndexedStack(
+      index: current.index,
+      children: [
+        for (final t in AppTab.values)
+          pinned && t == AppTab.player ? const SizedBox.shrink() : _screen(t),
+      ],
+    );
+    void pick(AppTab t) => setState(() => _tab = t);
+    if (!side) {
+      return Scaffold(
+        body: pages,
+        bottomNavigationBar: ListenableBuilder(
+          listenable: _jobs,
+          builder: (_, _) =>
+              _BottomBar(current: current, busy: _jobs.busy, onPick: pick),
+        ),
+      );
+    }
     return Scaffold(
-      body: IndexedStack(
-        index: _tab.index,
-        children: [for (final t in AppTab.values) _screen(t)],
+      body: Row(
+        children: [
+          ListenableBuilder(
+            listenable: _jobs,
+            builder: (_, _) => _SideBar(
+              tabs: tabs,
+              current: current,
+              busy: _jobs.busy,
+              onPick: pick,
+            ),
+          ),
+          Expanded(child: pages),
+          if (pinned)
+            Container(
+              width: 420,
+              clipBehavior: Clip.hardEdge,
+              decoration: const BoxDecoration(
+                border: Border(left: BorderSide(color: Palette.line)),
+              ),
+              child: PlayerScreen(ctl: _ctl),
+            ),
+        ],
       ),
-      bottomNavigationBar: ListenableBuilder(
-        listenable: _jobs,
-        builder: (_, _) => _BottomBar(
-          current: _tab,
-          busy: _jobs.busy,
-          onPick: (t) => setState(() => _tab = t),
+    );
+  }
+}
+
+/// 넓은 화면의 왼쪽 메뉴입니다. 휴대폰의 아래 막대와 같은 탭을 세로로 늘어놓습니다.
+class _SideBar extends StatelessWidget {
+  const _SideBar({
+    required this.tabs,
+    required this.current,
+    required this.busy,
+    required this.onPick,
+  });
+
+  final List<AppTab> tabs;
+  final AppTab current;
+  final bool busy;
+  final ValueChanged<AppTab> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    return Container(
+      width: 224,
+      decoration: const BoxDecoration(
+        color: Palette.surface,
+        border: Border(right: BorderSide(color: Palette.line)),
+      ),
+      child: SafeArea(
+        right: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: 'solo'),
+                    TextSpan(
+                      text: '.',
+                      style: letterStyle(34).copyWith(color: Palette.butter),
+                    ),
+                  ],
+                ),
+                style: letterStyle(34),
+              ),
+            ),
+            for (final t in tabs)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 2,
+                ),
+                child: _SideItem(
+                  icon: _tabOf(s, t).$1,
+                  label: _tabOf(s, t).$2,
+                  on: t == current,
+                  dot: busy && t == AppTab.add,
+                  onTap: () => onPick(t),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
+}
+
+class _SideItem extends StatelessWidget {
+  const _SideItem({
+    required this.icon,
+    required this.label,
+    required this.on,
+    required this.dot,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool on;
+  final bool dot;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: on,
+    child: Material(
+      color: on ? Palette.ink : Colors.transparent,
+      borderRadius: BorderRadius.circular(100),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(100),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          child: Row(
+            children: [
+              Badge(
+                isLabelVisible: dot,
+                smallSize: 8,
+                backgroundColor: Palette.butter,
+                child: Icon(
+                  icon,
+                  size: 22,
+                  color: on ? Palette.ground : Palette.secondary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                  color: on ? Palette.ground : Palette.secondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _BottomBar extends StatelessWidget {

@@ -15,15 +15,15 @@ import sqlite3
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import FastAPI, HTTPException, Request
-import base64
 
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import library, messages, youtube
+from . import auth, library, messages, youtube
 from .messages import msg
 from .serving import ranged_file
 
@@ -34,6 +34,11 @@ WEB = Path(os.environ.get("SOLO_WEB", Path(__file__).resolve().parent.parent / "
 APK_DIR = Path(os.environ.get("SOLO_APK_DIR", Path(__file__).resolve().parent.parent / "apk"))
 # 비워 두면 인증 없이 엽니다(LAN 이나 Cloudflare Access 같은 앞단 인증 뒤에 둘 때).
 PASSWORD = os.environ.get("SOLO_PASSWORD", "")
+# Cloudflare Access(구글 로그인)를 앞에 세울 때 씁니다. 팀 도메인(xxx.cloudflareaccess.com)과 애플리케이션 AUD 태그입니다.
+ACCESS = (auth.AccessVerifier(os.environ["SOLO_ACCESS_TEAM"], os.environ["SOLO_ACCESS_AUD"])
+          if os.environ.get("SOLO_ACCESS_TEAM") and os.environ.get("SOLO_ACCESS_AUD") else None)
+# QR 에 담을 서버 주소입니다. 비우면 요청이 들어온 주소를 씁니다.
+PUBLIC_URL = os.environ.get("SOLO_PUBLIC_URL", "").rstrip("/")
 
 UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 SUNO_URL = re.compile(rf"https://(www\.)?suno\.com/(song/{UUID}|s/[A-Za-z0-9]+)/?")
@@ -397,23 +402,89 @@ def api_restore(track_id: str) -> dict:
     return {"restored": track_id}
 
 
-def authorized(header: str) -> bool:
-    scheme, _, value = header.partition(" ")
-    if scheme.lower() != "basic":
-        return False
-    try:
-        _, _, given = base64.b64decode(value).decode().partition(":")
-    except (ValueError, UnicodeDecodeError):
-        return False
-    return secrets.compare_digest(given.encode(), PASSWORD.encode())
+# 인증 없이 열어 두는 길입니다. 짝짓기 코드 교환은 코드 자체가 열쇠입니다.
+OPEN_PATHS = {"/healthz", "/api/pair/claim"}
 
 
 @app.middleware("http")
-async def require_password(request: Request, call_next):
-    """SOLO_PASSWORD 가 있으면 모든 요청에 HTTP Basic 인증을 겁니다. 사용자 이름은 보지 않습니다."""
-    if PASSWORD and request.url.path != "/healthz" and not authorized(request.headers.get("authorization", "")):
-        return Response(messages.render(msg("auth.required"), language(request)), status_code=401, headers={"WWW-Authenticate": 'Basic realm="Solo", charset="UTF-8"'})
+async def require_login(request: Request, call_next):
+    """/api 는 늘 확인합니다. 화면 파일은 Access 를 쓸 때 Access 가 지키고, 비밀번호만 쓸 때는 여기서 지킵니다."""
+    path = request.url.path
+    guarded = path.startswith("/api/") or (PASSWORD and ACCESS is None)
+    if path in OPEN_PATHS or not guarded:
+        return await call_next(request)
+    who = auth.identify(
+        lib=LIB,
+        authorization=request.headers.get("authorization", ""),
+        access_token=request.headers.get("cf-access-jwt-assertion") or request.cookies.get("CF_Authorization", ""),
+        password=PASSWORD,
+        access=ACCESS,
+    )
+    if who is None:
+        headers = {"WWW-Authenticate": 'Basic realm="Solo", charset="UTF-8"'} if PASSWORD and ACCESS is None else {}
+        return JSONResponse({"detail": messages.render(msg("auth.required"), language(request)), "code": "auth.required"},
+                            status_code=401, headers=headers)
+    request.state.who = who
     return await call_next(request)
+
+
+def owner_only(request: Request) -> auth.Who:
+    who = getattr(request.state, "who", None)
+    if who is None or not who.owner:
+        raise SoloError(403, "auth.owner_only")
+    return who
+
+
+def public_origin(request: Request) -> str:
+    if PUBLIC_URL:
+        return PUBLIC_URL
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    proto = proto if proto in ("http", "https") else "https"
+    return f"{proto}://{request.headers.get('host', request.url.netloc)}"
+
+
+@app.get("/api/me")
+def api_me(request: Request):
+    who: auth.Who = request.state.who
+    return {"via": who.via, "owner": who.owner, "email": who.email, "device": who.device_id}
+
+
+@app.post("/api/pair")
+def api_pair(request: Request):
+    """웹이 QR 로 띄울 짝짓기 주소를 만듭니다. 앱이 찍으면 /api/pair/claim 으로 기기 토큰을 받습니다."""
+    owner_only(request)
+    code, expires = auth.new_pair_code(LIB)
+    server = public_origin(request)
+    return {"server": server, "code": code, "expires": expires,
+            "uri": "solo://pair?" + urlencode({"server": server, "code": code})}
+
+
+class Claim(BaseModel):
+    code: str
+    name: str = ""
+    platform: str = ""
+
+
+@app.post("/api/pair/claim")
+def api_pair_claim(body: Claim):
+    device = auth.claim_pair_code(LIB, body.code, body.name, body.platform)
+    if device is None:
+        raise SoloError(400, "pair.invalid")
+    return device
+
+
+@app.get("/api/devices")
+def api_devices(request: Request):
+    owner_only(request)
+    return auth.list_devices(LIB)
+
+
+@app.delete("/api/devices/{device_id}")
+def api_device_remove(device_id: str, request: Request):
+    owner_only(request)
+    if not auth.remove_device(LIB, device_id):
+        raise SoloError(404, "device.not_found")
+    return {"removed": device_id}
 
 
 @app.get("/healthz")

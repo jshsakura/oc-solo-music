@@ -4,24 +4,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ServerStore {
   static const _addressKey = 'server.address';
   static const _passwordKey = 'server.password';
+  static const _tokenKey = 'server.token';
 
-  static Future<({Uri address, String password})?> load() async {
+  static Future<({Uri address, String password, String token})?> load() async {
     final prefs = await SharedPreferences.getInstance();
     final address = parse(prefs.getString(_addressKey) ?? '');
     if (address == null) return null;
-    return (address: address, password: prefs.getString(_passwordKey) ?? '');
+    return (
+      address: address,
+      password: prefs.getString(_passwordKey) ?? '',
+      token: prefs.getString(_tokenKey) ?? '',
+    );
   }
 
-  static Future<void> save(Uri address, String password) async {
+  static Future<void> save(
+    Uri address, {
+    String password = '',
+    String token = '',
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_addressKey, address.toString());
     await prefs.setString(_passwordKey, password);
+    await prefs.setString(_tokenKey, token);
   }
 
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_addressKey);
     await prefs.remove(_passwordKey);
+    await prefs.remove(_tokenKey);
   }
 
   /// 사람이 넣은 주소를 서버 뿌리 주소로 정리합니다. 스킴이 없으면 http 로 봅니다.
