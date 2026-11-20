@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'add/add_screen.dart';
 import 'add/jobs_watch.dart';
@@ -10,6 +11,8 @@ import 'library_screen.dart';
 import 'player/player_screen.dart';
 import 'player_controller.dart';
 import 'theme.dart';
+import 'widgets/motion.dart';
+import 'widgets/motion_math.dart';
 
 enum AppTab { home, library, player, add, connect }
 
@@ -37,6 +40,9 @@ class _ShellState extends State<Shell> {
   late final PlayerController _ctl = PlayerController(widget.api);
   late final JobsWatch _jobs = JobsWatch(widget.api, onFinished: _load);
   AppTab _tab = AppTab.player;
+
+  /// 새 탭이 들어오는 쪽입니다. 오른쪽 탭으로 가면 1, 왼쪽이면 -1 입니다.
+  int _from = 1;
   List<Track> _tracks = const [];
   bool _loading = true;
   Object? _error;
@@ -103,6 +109,7 @@ class _ShellState extends State<Shell> {
         error: _error == null ? null : S.of(context).describe(_error!),
         onRetry: _load,
         currentId: _ctl.current?.id,
+        playing: _ctl.playing,
         onPlay: (list, i) async {
           setState(() => _tab = AppTab.player);
           await _ctl.load(list, start: i, play: true);
@@ -145,10 +152,24 @@ class _ShellState extends State<Shell> {
       index: current.index,
       children: [
         for (final t in AppTab.values)
-          pinned && t == AppTab.player ? const SizedBox.shrink() : _screen(t),
+          pinned && t == AppTab.player
+              ? const SizedBox.shrink()
+              : _TabSwap(
+                  active: t == current,
+                  from: _from,
+                  child: RepaintBoundary(child: _screen(t)),
+                ),
       ],
     );
-    void pick(AppTab t) => setState(() => _tab = t);
+    void pick(AppTab t) {
+      if (t == current) return;
+      HapticFeedback.selectionClick();
+      setState(() {
+        _from = t.index > current.index ? 1 : -1;
+        _tab = t;
+      });
+    }
+
     if (!side) {
       return Scaffold(
         body: pages,
@@ -201,6 +222,8 @@ class _SideBar extends StatelessWidget {
   final bool busy;
   final ValueChanged<AppTab> onPick;
 
+  static const _sideRow = 50.0;
+
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
@@ -230,20 +253,49 @@ class _SideBar extends StatelessWidget {
                 style: letterStyle(34),
               ),
             ),
-            for (final t in tabs)
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 2,
+            Stack(
+              children: [
+                // 고른 탭 뒤의 검은 알약이 탭 사이를 미끄러져 옮겨 갑니다.
+                AnimatedPositioned(
+                  duration: reducedMotion(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 420),
+                  curve: Curves.easeOutBack,
+                  left: 12,
+                  right: 12,
+                  top: tabs.indexOf(current) * _sideRow + 2,
+                  height: _sideRow - 4,
+                  child: const DecoratedBox(
+                    decoration: ShapeDecoration(
+                      color: Palette.ink,
+                      shape: StadiumBorder(),
+                    ),
+                  ),
                 ),
-                child: _SideItem(
-                  icon: _tabOf(s, t).$1,
-                  label: _tabOf(s, t).$2,
-                  on: t == current,
-                  dot: busy && t == AppTab.add,
-                  onTap: () => onPick(t),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final t in tabs)
+                      SizedBox(
+                        height: _sideRow,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 2,
+                          ),
+                          child: _SideItem(
+                            icon: _tabOf(s, t).$1,
+                            label: _tabOf(s, t).$2,
+                            on: t == current,
+                            dot: busy && t == AppTab.add,
+                            onTap: () => onPick(t),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ),
+              ],
+            ),
           ],
         ),
       ),
@@ -270,37 +322,35 @@ class _SideItem extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     selected: on,
-    child: Material(
-      color: on ? Palette.ink : Colors.transparent,
-      borderRadius: BorderRadius.circular(100),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(100),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-          child: Row(
-            children: [
-              Badge(
-                isLabelVisible: dot,
-                smallSize: 8,
-                backgroundColor: Palette.butter,
-                child: Icon(
-                  icon,
-                  size: 22,
-                  color: on ? Palette.ground : Palette.secondary,
-                ),
+    child: Pressable(
+      onTap: onTap,
+      scale: .96,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Badge(
+              isLabelVisible: dot,
+              smallSize: 8,
+              backgroundColor: Palette.butter,
+              child: _TabIcon(
+                icon: icon,
+                on: on,
+                size: 22,
+                color: on ? Palette.ground : Palette.secondary,
               ),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: on ? FontWeight.w700 : FontWeight.w500,
-                  color: on ? Palette.ground : Palette.secondary,
-                ),
+            ),
+            const SizedBox(width: 12),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 220),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                color: on ? Palette.ground : Palette.secondary,
               ),
-            ],
-          ),
+              child: Text(label),
+            ),
+          ],
         ),
       ),
     ),
@@ -329,48 +379,179 @@ class _BottomBar extends StatelessWidget {
       top: false,
       child: SizedBox(
         height: 58,
-        child: Row(
+        child: Stack(
           children: [
-            for (final t in AppTab.values)
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  selected: t == current,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onPick(t),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Badge(
-                          isLabelVisible: busy && t == AppTab.add,
-                          smallSize: 8,
-                          backgroundColor: Palette.butter,
-                          child: Icon(
-                            _tabOf(S.of(context), t).$1,
-                            size: 24,
-                            color: t == current ? Palette.ink : Palette.faint,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          _tabOf(S.of(context), t).$2,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: t == current
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: t == current ? Palette.ink : Palette.faint,
-                          ),
-                        ),
-                      ],
+            // 고른 탭 아이콘 뒤의 버터색 알약이 탭 사이를 미끄러져 옮겨 갑니다.
+            AnimatedAlign(
+              duration: reducedMotion(context)
+                  ? Duration.zero
+                  : const Duration(milliseconds: 420),
+              curve: Curves.easeOutBack,
+              alignment: Alignment(
+                -1 + 2 * current.index / (AppTab.values.length - 1),
+                -1,
+              ),
+              child: FractionallySizedBox(
+                widthFactor: 1 / AppTab.values.length,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 5),
+                    width: 56,
+                    height: 28,
+                    decoration: ShapeDecoration(
+                      color: Palette.butter.withValues(alpha: .55),
+                      shape: const StadiumBorder(),
                     ),
                   ),
                 ),
               ),
+            ),
+            Row(
+              children: [
+                for (final t in AppTab.values)
+                  Expanded(
+                    child: Semantics(
+                      button: true,
+                      selected: t == current,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onPick(t),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Badge(
+                              isLabelVisible: busy && t == AppTab.add,
+                              smallSize: 8,
+                              backgroundColor: Palette.butter,
+                              child: _TabIcon(
+                                icon: _tabOf(S.of(context), t).$1,
+                                on: t == current,
+                                size: 24,
+                                color: t == current
+                                    ? Palette.ink
+                                    : Palette.faint,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 220),
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: t == current
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: t == current
+                                    ? Palette.ink
+                                    : Palette.faint,
+                              ),
+                              child: Text(_tabOf(S.of(context), t).$2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),
     ),
+  );
+}
+
+/// 탭 아이콘입니다. 골라지는 순간 위로 톡 튀었다가 제자리로 내려앉습니다.
+class _TabIcon extends StatelessWidget {
+  const _TabIcon({
+    required this.icon,
+    required this.on,
+    required this.size,
+    required this.color,
+  });
+
+  final IconData icon;
+  final bool on;
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    // 켜질 때마다 0 에서 다시 시작하도록 상태에 따라 키를 바꿉니다.
+    key: ValueKey(on),
+    tween: Tween(begin: on ? 0 : 1, end: 1),
+    duration: reducedMotion(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 520),
+    builder: (_, t, child) => Transform.translate(
+      offset: Offset(0, -5 * (popScale(t) - 1) / .38),
+      child: Transform.scale(scale: popScale(t), child: child),
+    ),
+    child: TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: color),
+      duration: const Duration(milliseconds: 220),
+      builder: (_, c, _) => Icon(icon, size: size, color: c),
+    ),
+  );
+}
+
+/// 탭을 바꾸면 새 화면이 고른 쪽에서 살짝 밀려 들어오며 나타납니다.
+/// 화면 자체는 IndexedStack 이 계속 쥐고 있어 상태가 그대로 남습니다.
+class _TabSwap extends StatefulWidget {
+  const _TabSwap({
+    required this.active,
+    required this.from,
+    required this.child,
+  });
+
+  final bool active;
+  final int from;
+  final Widget child;
+
+  @override
+  State<_TabSwap> createState() => _TabSwapState();
+}
+
+class _TabSwapState extends State<_TabSwap>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+    value: 1,
+  );
+  late final Animation<double> _eased = CurvedAnimation(
+    parent: _c,
+    curve: Curves.easeOutCubic,
+  );
+
+  @override
+  void didUpdateWidget(_TabSwap old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active && !reducedMotion(context)) {
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _eased,
+    builder: (_, child) {
+      final v = _eased.value;
+      if (v >= 1) return child!;
+      return Opacity(
+        opacity: v,
+        child: Transform.translate(
+          offset: Offset(28.0 * widget.from * (1 - v), 0),
+          child: Transform.scale(scale: .985 + .015 * v, child: child),
+        ),
+      );
+    },
+    child: widget.child,
   );
 }

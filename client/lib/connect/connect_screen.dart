@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
+import '../widgets/motion.dart';
 import 'pair_dialog.dart';
 
 /// 연결 탭입니다. 계정, 짝지은 기기, 앱 받기, 유튜브 계정, (앱에서는) 붙어 있는 서버를 한곳에서 다룹니다.
@@ -235,7 +237,9 @@ class _Header extends StatelessWidget {
   final VoidCallback? onAction;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => Appear(index: 0, child: _header());
+
+  Widget _header() => Padding(
     padding: const EdgeInsets.fromLTRB(4, 24, 0, 8),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -285,21 +289,25 @@ class _Group extends StatelessWidget {
   const _Group({required this.children});
   final List<Widget> children;
 
+  // 묶음이 떠오르고, 그 안의 줄이 한 줄씩 뒤따라 들어옵니다.
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: Palette.surface,
-      borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: Palette.line),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      children: [
-        for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) const Divider(height: 1, color: Palette.sunk),
-          children[i],
+  Widget build(BuildContext context) => Appear(
+    index: 1,
+    child: Container(
+      decoration: BoxDecoration(
+        color: Palette.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Palette.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(height: 1, color: Palette.sunk),
+            Appear(index: i + 2, rise: 8, child: children[i]),
+          ],
         ],
-      ],
+      ),
     ),
   );
 }
@@ -375,9 +383,12 @@ class _IconButton extends StatelessWidget {
     child: Semantics(
       button: true,
       label: label,
-      child: InkResponse(
-        onTap: onTap,
-        radius: 26,
+      child: Pressable(
+        scale: .86,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
         child: Container(
           width: 44,
           height: 44,

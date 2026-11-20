@@ -1,17 +1,39 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
+import '../widgets/motion.dart';
 
 /// 짝짓기 QR 을 띄웁니다. 새 기기가 생기면 알아서 닫히고 true 를 돌려줍니다.
 Future<bool> showPairDialog(BuildContext context, Api api) async =>
-    await showDialog<bool>(
+    await showGeneralDialog<bool>(
       context: context,
-      builder: (_) => _PairDialog(api: api),
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: reducedMotion(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 380),
+      pageBuilder: (_, _, _) => _PairDialog(api: api),
+      // 작게 웅크렸다가 튀어 오르듯 커지며 뜹니다.
+      transitionBuilder: (_, a, _, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: a, curve: Curves.easeOut),
+        child: ScaleTransition(
+          scale: Tween(begin: .86, end: 1.0).animate(
+            CurvedAnimation(
+              parent: a,
+              curve: Curves.easeOutBack,
+              reverseCurve: Curves.easeIn,
+            ),
+          ),
+          child: child,
+        ),
+      ),
     ) ??
     false;
 
@@ -80,8 +102,9 @@ class _PairDialogState extends State<_PairDialog> {
       if (fresh.isEmpty || !mounted) return;
       _tick?.cancel();
       _check?.cancel();
+      unawaited(HapticFeedback.heavyImpact());
       setState(() => _paired = fresh.first.name);
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      await Future<void>.delayed(const Duration(milliseconds: 1600));
       if (mounted) Navigator.of(context).pop(true);
     } on Exception {
       // 다음 확인에서 다시 봅니다.
@@ -123,12 +146,7 @@ class _PairDialogState extends State<_PairDialog> {
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: _paired != null
-                      ? const Icon(
-                          Icons.check_circle_rounded,
-                          key: ValueKey('done'),
-                          size: 96,
-                          color: Palette.good,
-                        )
+                      ? const _PairedMark(key: ValueKey('done'))
                       : _error != null
                       ? Center(
                           key: const ValueKey('error'),
@@ -143,20 +161,28 @@ class _PairDialogState extends State<_PairDialog> {
                           key: ValueKey('wait'),
                           child: CircularProgressIndicator(color: Palette.ink),
                         )
-                      : AnimatedOpacity(
+                      : PulseRings(
                           key: ValueKey(offer.uri),
-                          opacity: expired ? 0.15 : 1,
-                          duration: const Duration(milliseconds: 300),
-                          child: QrImageView(
-                            data: offer.uri,
-                            padding: EdgeInsets.zero,
-                            eyeStyle: const QrEyeStyle(
-                              eyeShape: QrEyeShape.circle,
-                              color: Palette.ink,
-                            ),
-                            dataModuleStyle: const QrDataModuleStyle(
-                              dataModuleShape: QrDataModuleShape.circle,
-                              color: Palette.ink,
+                          active: !expired,
+                          spread: 14,
+                          radius: 14,
+                          child: AnimatedOpacity(
+                            opacity: expired ? 0.15 : 1,
+                            duration: const Duration(milliseconds: 300),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: QrImageView(
+                                data: offer.uri,
+                                padding: EdgeInsets.zero,
+                                eyeStyle: const QrEyeStyle(
+                                  eyeShape: QrEyeShape.circle,
+                                  color: Palette.ink,
+                                ),
+                                dataModuleStyle: const QrDataModuleStyle(
+                                  dataModuleShape: QrDataModuleShape.circle,
+                                  color: Palette.ink,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -194,4 +220,29 @@ class _PairDialogState extends State<_PairDialog> {
       ),
     );
   }
+}
+
+/// 짝짓기가 끝나면 체크가 튀어 오르고 둘레로 축하 종이가 터집니다.
+class _PairedMark extends StatelessWidget {
+  const _PairedMark({super.key});
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    alignment: Alignment.center,
+    clipBehavior: Clip.none,
+    children: [
+      const Positioned.fill(child: ConfettiBurst()),
+      TweenAnimationBuilder<double>(
+        tween: Tween(begin: reducedMotion(context) ? 1 : 0, end: 1),
+        duration: const Duration(milliseconds: 700),
+        curve: Curves.elasticOut,
+        builder: (_, v, child) => Transform.scale(scale: v, child: child),
+        child: const Icon(
+          Icons.check_circle_rounded,
+          size: 96,
+          color: Palette.good,
+        ),
+      ),
+    ],
+  );
 }
