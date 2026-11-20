@@ -113,6 +113,14 @@ abstract class S {
   // 서버 오류
   String get unreachable;
 
+  // 홈
+  String get homeCrateRecent;
+  String get homeHint;
+  String get homeHintOut;
+  String get homeLoad;
+  String get homeLoadLabel;
+  String get homeEmpty;
+
   // 서버 연결과 앱 받기
   String get serverTitle;
   String get serverIntro;
@@ -289,6 +297,20 @@ class _Ko extends S {
   String get connectLater => '유튜브와 구글 드라이브 연결을 다음 단계에서 붙입니다';
   @override
   String get unreachable => '서버에 닿지 못했습니다';
+
+  // 홈
+  @override
+  String get homeCrateRecent => '최근';
+  @override
+  String get homeHint => '위아래로 넘기고, 눌러서 꺼냅니다';
+  @override
+  String get homeHintOut => '판을 누르면 턴테이블에 올라갑니다';
+  @override
+  String get homeLoad => '올리기';
+  @override
+  String get homeLoadLabel => '턴테이블에 올리기';
+  @override
+  String get homeEmpty => '상자가 아직 비어 있습니다. 추가 탭에서 곡을 넣으면 여기에 꽂힙니다';
 
   @override
   String get serverTitle => '서버 연결';
@@ -492,6 +514,21 @@ class _En extends S {
   @override
   String get unreachable => 'Could not reach the server';
 
+  // 홈
+  @override
+  String get homeCrateRecent => 'Recent';
+  @override
+  String get homeHint => 'Flip up and down, tap to pull one out';
+  @override
+  String get homeHintOut => 'Tap the record to put it on the turntable';
+  @override
+  String get homeLoad => 'Load';
+  @override
+  String get homeLoadLabel => 'Put it on the turntable';
+  @override
+  String get homeEmpty =>
+      'The crate is empty for now. Songs you add in the Add tab land here.';
+
   @override
   String get serverTitle => 'Connect to a server';
   @override
@@ -687,6 +724,20 @@ class _Ja extends S {
   String get connectLater => 'YouTube と Google ドライブの連携は次の段階で付けます';
   @override
   String get unreachable => 'サーバーにつながりませんでした';
+
+  // 홈
+  @override
+  String get homeCrateRecent => '最近';
+  @override
+  String get homeHint => '上下にめくって、タップで取り出します';
+  @override
+  String get homeHintOut => 'レコードをタップするとターンテーブルにのせます';
+  @override
+  String get homeLoad => 'のせる';
+  @override
+  String get homeLoadLabel => 'ターンテーブルにのせる';
+  @override
+  String get homeEmpty => '箱はまだ空です。追加タブで曲を入れるとここに並びます';
 
   @override
   String get serverTitle => 'サーバーに接続';

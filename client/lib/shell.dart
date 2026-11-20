@@ -4,6 +4,7 @@ import 'add/add_screen.dart';
 import 'add/jobs_watch.dart';
 import 'api.dart';
 import 'connect/connect_screen.dart';
+import 'home/home_screen.dart';
 import 'l10n.dart';
 import 'library_screen.dart';
 import 'player/player_screen.dart';
@@ -108,9 +109,14 @@ class _ShellState extends State<Shell> {
         },
       ),
     ),
-    AppTab.home => _Later(
-      title: S.of(context).tabHome,
-      note: S.of(context).homeLater,
+    AppTab.home => HomeScreen(
+      api: widget.api,
+      tracks: _tracks,
+      loading: _loading,
+      onPlay: (list, i) async {
+        setState(() => _tab = AppTab.player);
+        await _ctl.load(list, start: i, play: true);
+      },
     ),
     AppTab.add => AddScreen(api: widget.api, watch: _jobs),
     AppTab.connect => ConnectScreen(
@@ -201,33 +207,6 @@ class _BottomBar extends StatelessWidget {
               ),
           ],
         ),
-      ),
-    ),
-  );
-}
-
-class _Later extends StatelessWidget {
-  const _Later({required this.title, required this.note});
-  final String title;
-  final String note;
-
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            note,
-            style: const TextStyle(fontSize: 13, color: Palette.faint),
-          ),
-        ],
       ),
     ),
   );
