@@ -136,29 +136,11 @@ class _ShelfRow extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // 판 뒤의 칸막이 벽입니다. 선반 쪽으로 갈수록 그늘이 집니다.
-          Positioned(
-            left: -10,
-            right: -10,
-            top: -14,
-            height: standing + 14,
-            child: const DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x00EBE9E4), Palette.sunk, Color(0xFFE2DDD3)],
-                  stops: [0, .45, 1],
-                ),
-              ),
-            ),
-          ),
           // 선반은 칸 양옆으로 조금 더 길게 나와 판들을 받칩니다.
           Positioned(
-            left: -10,
-            right: -10,
-            top: standing - 2,
+            left: -6,
+            right: -6,
+            top: standing - 1,
             child: const ShelfPlank(),
           ),
           Row(
@@ -179,52 +161,30 @@ class _ShelfRow extends StatelessWidget {
   }
 }
 
-/// 옅은 원목 선반입니다. 윗면, 앞면, 그 아래로 지는 그림자로 이루어집니다.
+/// 얇은 흰 선반입니다. 윗면의 밝은 선과 아래로 번지는 옅은 그림자만으로 떠 있는 듯 보입니다.
 class ShelfPlank extends StatelessWidget {
   const ShelfPlank({super.key});
 
-  static const height = 18.0;
-  static const _top = [Color(0xFFF3ECDF), Color(0xFFE5D7BF)];
-  static const _front = [Color(0xFFD9C4A1), Color(0xFFC2A67C)];
+  static const height = 6.0;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
+  Widget build(BuildContext context) => Container(
     height: height,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          height: 7,
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(3)),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: _top,
-            ),
-          ),
+    decoration: BoxDecoration(
+      color: Palette.surface,
+      borderRadius: BorderRadius.circular(3),
+      border: const Border(bottom: BorderSide(color: Palette.line)),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x1A16161A),
+          blurRadius: 16,
+          spreadRadius: -6,
+          offset: Offset(0, 10),
         ),
-        Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(4),
-              ),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: _front,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF6B5531).withValues(alpha: .22),
-                  blurRadius: 14,
-                  spreadRadius: -4,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-          ),
+        BoxShadow(
+          color: Color(0x0F16161A),
+          blurRadius: 2,
+          offset: Offset(0, 1),
         ),
       ],
     ),
