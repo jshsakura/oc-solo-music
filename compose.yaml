@@ -1,0 +1,28 @@
+# Solo: 수노 곡은 녹음하고 유튜브 곡은 받아 모아서, 나만 듣는 재생기로 내려줍니다.
+services:
+  solo:
+    image: ghcr.io/jshsakura/oc-solo-music:latest
+    container_name: oc-solo-music
+    restart: unless-stopped
+    ports:
+      - "${SOLO_PORT:-8000}:8000"
+    shm_size: 1gb          # 녹음용 크롬이 /dev/shm 을 씁니다
+    environment:
+      TZ: ${TZ:-Asia/Seoul}
+      # 인터넷에 직접 열면 반드시 정합니다. 앞단에 다른 인증이 있으면 비워 둡니다.
+      SOLO_PASSWORD: ${SOLO_PASSWORD:-}
+      # 유튜브가 "진짜 브라우저가 맞는지" 확인하는 토큰을 아래 컨테이너가 만듭니다.
+      SOLO_POT_BASE_URL: http://bgutil-pot:4416
+    volumes:
+      # 곡 파일, solo.db, 유튜브 계정 쿠키(.youtube/cookies.txt)가 여기에 남습니다.
+      - ${SOLO_LIBRARY:-./library}:/library
+    depends_on:
+      - bgutil-pot
+
+  # PO Token 공급자. 없으면 유튜브가 받을 수 있는 포맷을 아예 주지 않습니다. 밖으로 열 필요가 없습니다.
+  bgutil-pot:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: oc-solo-music-pot
+    restart: unless-stopped
+    expose:
+      - "4416"
