@@ -56,7 +56,13 @@ jobs:
             export SOLO_KEYSTORE="$RUNNER_TEMP/solo.jks"
           fi
           name=$(sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
-          flutter build apk --release --target-platform android-arm64 --build-name "$name" --build-number "${{ github.run_number }}"
+          # 의존성 저장소가 429 로 거절하면 잠시 쉬었다가 다시 받습니다.
+          for try in 1 2 3; do
+            flutter build apk --release --target-platform android-arm64 \
+              --build-name "$name" --build-number "${{ github.run_number }}" && break
+            [ "$try" = 3 ] && exit 1
+            sleep $((try * 45))
+          done
           mkdir -p ../apk
           cp build/app/outputs/flutter-apk/app-release.apk ../apk/solo.apk
           echo "$name+${{ github.run_number }}" > ../apk/version.txt
