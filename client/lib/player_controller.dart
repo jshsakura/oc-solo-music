@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 
 import 'api.dart';
+import 'platform/now_playing.dart';
 
 enum Repeat { off, all, one }
 
@@ -13,6 +14,14 @@ enum Repeat { off, all, one }
 class PlayerController extends ChangeNotifier {
   PlayerController(this.api) {
     _listen();
+    if (kIsWeb) {
+      bindNowPlayingActions(
+        onPlay: play,
+        onPause: pause,
+        onNext: () => unawaited(skip(1)),
+        onPrevious: () => unawaited(shownSecs > 3 ? seekSecs(0) : skip(-1)),
+      );
+    }
   }
 
   void _listen() {
@@ -104,6 +113,13 @@ class PlayerController extends ChangeNotifier {
           ),
         ),
       );
+      if (kIsWeb) {
+        showNowPlaying(
+          title: track.title,
+          artist: track.artist,
+          artwork: track.hasCover ? api.coverUri(track.id) : null,
+        );
+      }
       if (play) unawaited(_player.play());
     } on Exception catch (e) {
       error = e;
