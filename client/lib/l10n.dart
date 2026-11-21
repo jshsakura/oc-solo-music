@@ -132,6 +132,7 @@ abstract class S {
 
   // 홈 보기
   String get homeViewShelf;
+  String get jukeboxHint;
   String get homeViewCrate;
   String homeShelfPlay(String title);
 
@@ -378,6 +379,8 @@ class _Ko extends S {
   // 홈 보기
   @override
   String get homeViewShelf => '책장으로 보기';
+  @override
+  String get jukeboxHint => '휠이나 화살표로 넘기고, 가운데 판을 눌러 재생합니다';
   @override
   String get homeViewCrate => '상자로 보기';
   @override
@@ -684,6 +687,9 @@ class _En extends S {
   @override
   String get homeViewShelf => 'Shelf view';
   @override
+  String get jukeboxHint =>
+      'Scroll or use the arrow keys to flip, click the center record to play';
+  @override
   String get homeViewCrate => 'Crate view';
   @override
   String homeShelfPlay(String title) => 'Play $title';
@@ -982,6 +988,8 @@ class _Ja extends S {
   // 홈 보기
   @override
   String get homeViewShelf => '棚で見る';
+  @override
+  String get jukeboxHint => 'ホイールか矢印キーでめくり、真ん中のレコードを押すと再生します';
   @override
   String get homeViewCrate => '箱で見る';
   @override

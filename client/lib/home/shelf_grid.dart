@@ -210,7 +210,7 @@ class _ShelfRow extends StatelessWidget {
   }
 }
 
-/// 격자의 판 하나입니다. 손을 올리면 떠오르며 레코드가 빠져나오고, 누르면 꾹 눌렸다 튕깁니다.
+/// 격자의 판 하나입니다. 손을 올리면 표지는 그대로 두고 레코드만 위로 빠져나옵니다.
 class _ShelfRecord extends StatefulWidget {
   const _ShelfRecord({
     super.key,
@@ -284,10 +284,10 @@ class _ShelfRecordState extends State<_ShelfRecord> {
                 borderRadius: BorderRadius.circular(6),
                 boxShadow: [
                   BoxShadow(
-                    color: Color(lifted ? 0x3816161A : 0x1416161A),
-                    blurRadius: lifted ? 26 : 8,
-                    spreadRadius: lifted ? -4 : -2,
-                    offset: Offset(0, lifted ? 16 : 4),
+                    color: const Color(0x1416161A),
+                    blurRadius: 8,
+                    spreadRadius: -2,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -333,19 +333,12 @@ class _ShelfRecordState extends State<_ShelfRecord> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AnimatedScale(
-                  scale: _down ? .9 : (_hover ? 1.05 : 1),
+                  scale: _down ? .94 : 1,
                   duration: still
                       ? Duration.zero
                       : Duration(milliseconds: _down ? 90 : 520),
                   curve: _down ? Curves.easeOut : Curves.elasticOut,
-                  child: AnimatedSlide(
-                    offset: Offset(0, _hover && !_down ? -.04 : 0),
-                    duration: still
-                        ? Duration.zero
-                        : const Duration(milliseconds: 320),
-                    curve: Curves.easeOutBack,
-                    child: record,
-                  ),
+                  child: record,
                 ),
                 const SizedBox(height: 10),
                 Text(

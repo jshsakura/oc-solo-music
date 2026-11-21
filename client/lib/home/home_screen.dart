@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/skeleton.dart';
 import 'crate_math.dart';
 import 'crate_stage.dart';
+import 'jukebox.dart';
 import 'shelf_grid.dart';
 
 String _crateName(S s, HomeCrate c) => switch (c) {
@@ -74,26 +75,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 왼쪽 메뉴가 보이는 넓은 화면입니다. 거기에 이미 로고가 있어 여기서는 '홈' 제목을 씁니다.
   bool get _wide => MediaQuery.sizeOf(context).width >= 900;
 
+  HomeView get _shownView => _view;
+
+  /// 넓은 화면에서는 판 상자 자리에 표지를 가로로 펼친 주크박스를 씁니다.
+  bool get _jukebox => _wide && _view == HomeView.crate;
+
   /// 처음 곡 목록을 받는 중입니다. 다시 받을 때는 있던 판을 그대로 둡니다.
   bool get _waiting => widget.loading && widget.tracks.isEmpty;
-
-  /// 저장해 둔 보기를 되살렸거나 사용자가 직접 바꿨습니다. 그 뒤로는 폭으로 정하지 않습니다.
-  bool get _chosen => _userSwitched || _restored;
-  bool _restored = false;
 
   @override
   void initState() {
     super.initState();
     _restoreView();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 고른 적이 없으면 넓은 화면은 격자로, 폰은 판 상자로 시작합니다. 저장해 둔 보기가 있으면 그게 이깁니다.
-    // 웹은 첫 프레임에 폭이 0 으로 올 수 있어, 사용자가 고르기 전까지는 폭이 바뀔 때마다 다시 정합니다.
-    if (_chosen) return;
-    _view = _wide ? HomeView.shelf : HomeView.crate;
   }
 
   Future<void> _restoreView() async {
@@ -102,7 +95,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final saved = prefs.getString(homeViewKey);
       final view = HomeView.values.where((v) => v.name == saved).firstOrNull;
       if (view != null && mounted && !_userSwitched) {
-        _restored = true;
         setState(() => _view = view);
       }
     } catch (_) {
@@ -273,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         builder: (_, _) => Text(
                           shown.isEmpty
                               ? '0'
-                              : _view == HomeView.shelf
+                              : _shownView == HomeView.shelf || _jukebox
                               ? '${shown.length}'
                               : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
                           style: const TextStyle(
@@ -283,14 +275,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ),
                       ),
-                    const SizedBox(width: 10),
-                    _ViewToggle(
-                      view: _view,
-                      label: _view == HomeView.crate
-                          ? s.homeViewShelf
-                          : s.homeViewCrate,
-                      onTap: _toggleView,
-                    ),
+                    ...[
+                      const SizedBox(width: 10),
+                      _ViewToggle(
+                        view: _view,
+                        label: _shownView == HomeView.crate
+                            ? s.homeViewShelf
+                            : s.homeViewCrate,
+                        onTap: _toggleView,
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -330,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
               child: KeyedSubtree(
-                key: ValueKey(_view),
+                key: ValueKey(_shownView),
                 child: _stage(s, shown),
               ),
             ),
@@ -343,7 +337,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 곡 목록을 받는 동안은 지금 보기와 같은 모양의 빈 자리를 두고, 받으면 그 위로 판이 들어옵니다.
   Widget _stage(S s, List<Track> shown) => LoadSwitch(
     loading: _waiting,
-    skeleton: _view == HomeView.shelf
+    skeleton: _shownView == HomeView.shelf
         ? const ShelfSkeleton()
         : Skeleton(
             key: const Key('home-stage-skeleton'),
@@ -380,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         : shown.isEmpty
         ? s.emptyCrate
         : null;
-    if (_view == HomeView.shelf) {
+    if (_shownView == HomeView.shelf) {
       if (message != null) {
         return Center(
           child: Padding(
@@ -397,6 +391,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         key: ValueKey(_crate),
         api: widget.api,
         tracks: shown,
+        playLabel: s.homeShelfPlay,
+        onPlay: _playFrom,
+      );
+    }
+    if (_jukebox) {
+      if (message != null) {
+        return Center(
+          child: Text(
+            message,
+            style: const TextStyle(fontSize: 14, color: Palette.secondary),
+          ),
+        );
+      }
+      return Jukebox(
+        key: ValueKey(_crate),
+        api: widget.api,
+        tracks: shown,
+        hint: s.jukeboxHint,
         playLabel: s.homeShelfPlay,
         onPlay: _playFrom,
       );
