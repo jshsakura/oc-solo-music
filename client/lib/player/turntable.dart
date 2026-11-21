@@ -789,18 +789,22 @@ class _ArmPainter extends CustomPainter {
   final double lift;
 
   static const _tip = Offset(30, 207);
-  // 긴 봉은 거의 곧게 내려오다가 끝에서 40도쯤 꺾여 헤드로 이어집니다.
-  static const _knee = Offset(62, 170);
-  static const _bend = 0.71; // 꺾인 마디의 기울기(라디안)입니다. 헤드도 이 각도로 붙습니다.
-  // 꺾이는 마디는 모서리 대신 둥글게 휘어 실제 톤암처럼 보이게 합니다.
+  // 봉은 거의 곧게 내려오다 끝에서만 J자로 휘고, 흰 헤드가 휜 방향을 그대로 잇습니다.
+  static const _end = Offset(40.5, 184.7);
+  static const _headTurn = 0.441; // 헤드가 붙는 기울기(라디안)입니다.
+  static const _headScale = 0.95;
   static final _rod = Path()
     ..moveTo(30, 0)
-    ..lineTo(59.0, 154.0)
-    ..quadraticBezierTo(_knee.dx, _knee.dy, 52.2, 181.3)
-    ..lineTo(30 + 18 * 0.652, 207 - 18 * 0.758);
+    ..lineTo(47.8, 130.4)
+    ..quadraticBezierTo(51.7, 160.7, _end.dx, _end.dy);
+  // 헤드는 봉 끝(_end)에서 아래로 26만큼 뻗고, 그 끝이 바늘 끝(_tip)입니다.
   static final _head = RRect.fromRectAndRadius(
-    Rect.fromCenter(center: const Offset(30, 196), width: 15, height: 24),
+    const Rect.fromLTWH(-7, -2, 14, 26),
     const Radius.circular(4),
+  );
+  static final _stylus = RRect.fromRectAndRadius(
+    const Rect.fromLTWH(-4.5, 24, 9, 4),
+    const Radius.circular(1.5),
   );
 
   @override
@@ -816,36 +820,35 @@ class _ArmPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
     canvas
       ..drawPath(_rod.shift(away), rod.withShadow(shadow, 4))
-      ..drawRRect(_head.shift(away), shadow)
       ..drawPath(_rod, rod.withColor(const Color(0xFFB9BCC2), 4))
       ..drawPath(_rod, rod.withColor(const Color(0xFFECEDEF), 1.4));
-    final scale = 1 + 0.08 * up;
-    // 헤드는 바늘 끝을 축으로 살짝 비틀어 붙여서 바늘 끝이 늘 헤드 끝에 있게 합니다.
-    const c = _tip;
-    canvas
-      ..save()
-      ..translate(c.dx, c.dy)
-      ..rotate(_bend)
-      ..scale(scale)
-      ..translate(-c.dx, -c.dy)
-      ..drawRRect(_head, Paint()..color = const Color(0xFFF4F3EF))
-      ..drawRRect(
-        _head.deflate(0.5),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = const Color(0xFFCFCDC6),
-      )
-      // 헤드 옆으로 튀어나온 손잡이(핑거 리프트)입니다.
-      ..drawLine(
-        Offset(_head.left, _head.top + 7),
-        Offset(_head.left - 7, _head.top + 4),
-        Paint()
-          ..strokeWidth = 2
-          ..strokeCap = StrokeCap.round
-          ..color = const Color(0xFFD9D8D3),
-      )
-      ..restore();
+    // 들어 올리면 헤드가 살짝 커 보입니다. 바늘 끝을 축으로 키워 끝 자리는 그대로 둡니다.
+    final grow = 1 + 0.08 * up;
+    void headAt(Offset shift, void Function() draw) {
+      canvas
+        ..save()
+        ..translate(_tip.dx + shift.dx, _tip.dy + shift.dy)
+        ..scale(grow)
+        ..translate(_end.dx - _tip.dx, _end.dy - _tip.dy)
+        ..rotate(_headTurn)
+        ..scale(_headScale);
+      draw();
+      canvas.restore();
+    }
+
+    headAt(away, () => canvas.drawRRect(_head, shadow));
+    headAt(Offset.zero, () {
+      canvas
+        ..drawRRect(_stylus, Paint()..color = const Color(0xFFB9BCC2))
+        ..drawRRect(_head, Paint()..color = const Color(0xFFF4F3EF))
+        ..drawRRect(
+          _head.deflate(0.5),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = const Color(0xFFCFCDC6),
+        );
+    });
   }
 
   @override
