@@ -40,6 +40,7 @@ class _ShellState extends State<Shell> {
   late final PlayerController _ctl = PlayerController(widget.api);
   late final JobsWatch _jobs = JobsWatch(widget.api, onFinished: _load);
   AppTab _tab = AppTab.player;
+  final _addOpened = ValueNotifier(0);
 
   /// 새 탭이 들어오는 쪽입니다. 오른쪽 탭으로 가면 1, 왼쪽이면 -1 입니다.
   int _from = 1;
@@ -66,6 +67,7 @@ class _ShellState extends State<Shell> {
     _ctl.removeListener(_syncLikes);
     _ctl.dispose();
     _jobs.dispose();
+    _addOpened.dispose();
     super.dispose();
   }
 
@@ -125,7 +127,7 @@ class _ShellState extends State<Shell> {
         await _ctl.load(list, start: i, play: true);
       },
     ),
-    AppTab.add => AddScreen(api: widget.api, watch: _jobs),
+    AppTab.add => AddScreen(api: widget.api, watch: _jobs, opened: _addOpened),
     AppTab.connect => ConnectScreen(
       api: widget.api,
       onChangeServer: widget.onChangeServer,
@@ -164,6 +166,8 @@ class _ShellState extends State<Shell> {
     void pick(AppTab t) {
       if (t == current) return;
       HapticFeedback.selectionClick();
+      // 탭을 누른 그 순간에 알려야 웹에서도 클립보드를 읽을 수 있습니다.
+      if (t == AppTab.add) _addOpened.value++;
       setState(() {
         _from = t.index > current.index ? 1 : -1;
         _tab = t;
