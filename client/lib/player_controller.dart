@@ -50,6 +50,19 @@ class PlayerController extends ChangeNotifier {
   int index = 0;
   bool shuffle = false;
   Repeat repeat = Repeat.off;
+
+  /// 턴테이블 피치 슬라이더의 빠르기입니다. 실제 턴테이블처럼 ±8% 안에서 움직입니다.
+  double pitch = 1.0;
+  static const pitchRange = .08;
+
+  void setPitch(double v) {
+    final next = v.clamp(1 - pitchRange, 1 + pitchRange);
+    if (next == pitch) return;
+    pitch = next;
+    unawaited(_player.setSpeed(pitch));
+    notifyListeners();
+  }
+
   Duration position = Duration.zero;
   int sleepMinutes = 0;
 
@@ -138,6 +151,7 @@ class PlayerController extends ChangeNotifier {
     _player = AudioPlayer();
     _listen();
     if (repeat == Repeat.one) await _player.setLoopMode(LoopMode.one);
+    if (pitch != 1) await _player.setSpeed(pitch);
     unawaited(old.dispose());
   }
 

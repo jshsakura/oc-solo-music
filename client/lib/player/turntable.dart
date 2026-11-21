@@ -164,7 +164,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       _rumbleT = rumbleSecs;
     } else {
       if (_lastAngle == null) {
-        _speed = spinStep(_speed, _c.playing ? normalSpeed : 0, dt);
+        _speed = spinStep(_speed, _c.playing ? normalSpeed * _c.pitch : 0, dt);
         _rot = (_rot + _speed * dt) % 360;
       }
       if (!_armDragging) {
@@ -519,15 +519,15 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       child: Stack(
         children: [
           // 오른쪽 아래의 전원 불빛과 회전수 표시입니다. 돌 때 불빛이 켜집니다.
-          Positioned(right: 22, bottom: 18, child: _PowerLamp(on: _c.playing)),
-          // 판 밑의 플래터와 가운데 축입니다. 판보다 조금 작아서 판이 있을 땐 가려지고,
-          // 판을 갈아 끼우는 동안에만 드러납니다.
+          Positioned(right: 40, bottom: 18, child: _PowerLamp(on: _c.playing)),
+          // 판 밑의 유리 플래터입니다. 판보다 조금 커서 판 둘레로 유리 테가 비치고,
+          // 판을 치우면 가운데 축까지 드러납니다.
           const Positioned(
-            left: _discLeft + 6,
-            top: _discTop + 6,
-            width: _disc - 12,
-            height: _disc - 12,
-            child: CustomPaint(painter: _Platter()),
+            left: _discLeft - 10,
+            top: _discTop - 10,
+            width: _disc + 20,
+            height: _disc + 20,
+            child: IgnorePointer(child: CustomPaint(painter: _GlassPlatter())),
           ),
           Positioned(
             left: _discLeft,
@@ -613,6 +613,33 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
               onPanUpdate: (d) => _armUpdate(d.localPosition),
               onPanEnd: (_) => _armEnd(),
               onPanCancel: _armEnd,
+            ),
+          ),
+          // 바늘을 잡는 자리보다 위에 두어야 눌립니다. 왼쪽 아래 다이얼은 시작과 정지, 오른쪽 슬라이더는 빠르기(피치)입니다.
+          Positioned(
+            left: 14,
+            bottom: 12,
+            child: _PowerDial(
+              on: _c.playing,
+              label: S.of(context).powerLabel,
+              onTap: () {
+                _c.toggle();
+                widget.onHint(
+                  _c.playing ? S.of(context).playing : S.of(context).paused,
+                );
+              },
+            ),
+          ),
+          Positioned(
+            right: 8,
+            bottom: 12,
+            child: _PitchSlider(
+              pitch: _c.pitch,
+              label: S.of(context).pitchLabel,
+              onChanged: (v) {
+                _c.setPitch(v);
+                widget.onHint(S.of(context).pitchHint(pitchText(_c.pitch)));
+              },
             ),
           ),
         ],
@@ -1150,9 +1177,16 @@ class _DropGuide extends CustomPainter {
       old.endLabel != endLabel;
 }
 
-/// 판을 치웠을 때 보이는 플래터입니다. 고무 매트의 동심원 결과 금속 테, 가운데 축을 그립니다.
-class _Platter extends CustomPainter {
-  const _Platter();
+/// 피치를 +3.2% 처럼 적습니다.
+String pitchText(double pitch) {
+  final pct = (pitch - 1) * 100;
+  if (pct.abs() < .05) return '±0%';
+  return '${pct > 0 ? '+' : '−'}${pct.abs().toStringAsFixed(1)}%';
+}
+
+/// 판 밑의 유리 플래터입니다. 반투명 유리판에 흰 테와 비스듬한 반사광, 가운데 금속 축을 그립니다.
+class _GlassPlatter extends CustomPainter {
+  const _GlassPlatter();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1160,25 +1194,68 @@ class _Platter extends CustomPainter {
     final r = size.width / 2;
     final rect = Rect.fromCircle(center: c, radius: r);
     canvas.drawCircle(
+      c + const Offset(0, 6),
+      r,
+      Paint()
+        ..color = const Color(0x40000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    canvas.drawCircle(
       c,
       r,
       Paint()
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF8C8F96), Color(0xFF4E5056), Color(0xFF7D8087)],
+          colors: [Color(0x38FFFFFF), Color(0x12FFFFFF), Color(0x26C9DCE6)],
         ).createShader(rect),
     );
-    canvas.drawCircle(c, r - 4, Paint()..color = const Color(0xFF1C1C20));
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = const Color(0x14FFFFFF);
-    for (var k = r - 14; k > 30; k -= 9) {
-      canvas.drawCircle(c, k, ring);
+    canvas.drawCircle(
+      c,
+      r - .75,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = const Color(0x99FFFFFF),
+    );
+    canvas.drawCircle(
+      c,
+      r - 4,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = const Color(0x557FA3B8),
+    );
+    // 왼쪽 위로 비스듬히 지나는 반사광입니다.
+    canvas.drawArc(
+      Rect.fromCircle(center: c, radius: r - 2),
+      pi * 1.08,
+      pi * .42,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..color = const Color(0xCCFFFFFF),
+    );
+    for (var k = r - 30; k > 40; k -= 26) {
+      canvas.drawCircle(
+        c,
+        k,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..color = const Color(0x10FFFFFF),
+      );
     }
     // 축 받침과 금속 핀입니다.
-    canvas.drawCircle(c, 22, Paint()..color = const Color(0xFF2A2A30));
+    canvas.drawCircle(c, 20, Paint()..color = const Color(0x332A2A30));
+    canvas.drawCircle(
+      c,
+      20,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..color = const Color(0x44FFFFFF),
+    );
     canvas.drawCircle(
       c + const Offset(0, 2),
       7,
@@ -1196,5 +1273,175 @@ class _Platter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_Platter oldDelegate) => false;
+  bool shouldRepaint(_GlassPlatter oldDelegate) => false;
+}
+
+/// 왼쪽 아래의 시작·정지 다이얼입니다. 누를 때마다 표시 눈금이 정지와 시작 자리를 오갑니다.
+class _PowerDial extends StatelessWidget {
+  const _PowerDial({
+    required this.on,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool on;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    toggled: on,
+    label: label,
+    excludeSemantics: true,
+    child: MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: 30,
+          child: AnimatedRotation(
+            turns: on ? 0 : -.25,
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutBack,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  center: Alignment(-.3, -.4),
+                  colors: [Color(0xFF4A4A53), Color(0xFF34343B)],
+                ),
+                border: Border.all(color: const Color(0xFF5A5B63)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x55000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Align(
+                alignment: const Alignment(0, -.62),
+                child: Container(
+                  width: 2.6,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: Palette.butter,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// 오른쪽의 피치 슬라이더입니다. 위로 올리면 빨라지고 내리면 느려지며, 두 번 누르면 원래 빠르기로 돌아갑니다.
+class _PitchSlider extends StatelessWidget {
+  const _PitchSlider({
+    required this.pitch,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final double pitch;
+  final String label;
+  final ValueChanged<double> onChanged;
+
+  static const _w = 20.0, _h = 80.0, _knob = 12.0;
+  static const _range = PlayerController.pitchRange;
+
+  double _y(double p) => (_h - _knob) / 2 * (1 - (p - 1) / _range);
+
+  void _drag(double dy) {
+    final next = pitch - dy / ((_h - _knob) / 2) * _range;
+    // 가운데(원래 빠르기) 근처에서는 살짝 붙어서 0% 로 되돌리기 쉽습니다.
+    onChanged((next - 1).abs() < .004 ? 1 : next);
+  }
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    slider: true,
+    label: label,
+    value: pitchText(pitch),
+    increasedValue: pitchText(pitch + .01),
+    decreasedValue: pitchText(pitch - .01),
+    onIncrease: () => onChanged(pitch + .01),
+    onDecrease: () => onChanged(pitch - .01),
+    excludeSemantics: true,
+    child: MouseRegion(
+      cursor: SystemMouseCursors.resizeUpDown,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (d) => _drag(d.delta.dy),
+        onDoubleTap: () => onChanged(1),
+        child: SizedBox(
+          width: _w,
+          height: _h,
+          child: Stack(
+            children: [
+              // 홈과 눈금입니다. 가운데 굵은 눈금이 원래 빠르기입니다.
+              Positioned(
+                left: _w / 2 - 3,
+                top: 2,
+                bottom: 2,
+                child: Container(
+                  width: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF17171B),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              for (var k = 0; k <= 8; k++)
+                Positioned(
+                  left: 0,
+                  top: _knob / 2 + (_h - _knob) * k / 8 - .5,
+                  child: Container(
+                    width: k == 4 ? 5 : 3,
+                    height: 1,
+                    color: k == 4 ? Palette.butter : const Color(0x55FFFFFF),
+                  ),
+                ),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 90),
+                left: 2,
+                right: 2,
+                top: _y(pitch),
+                height: _knob,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(3),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xFFE4E6EA), Color(0xFF9EA1A8)],
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Container(
+                      width: 10,
+                      height: 1.5,
+                      color: const Color(0xFF4A4B52),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
