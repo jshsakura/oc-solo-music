@@ -600,27 +600,9 @@ class _Disc extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = track;
-    // 종이 라벨처럼 가장자리에 슬리브 색 띠를 두르고, 그 안에 표지를 찍습니다.
     final label = RepaintBoundary(
-      child: Container(
-        width: 100,
-        height: 100,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: t == null ? Palette.butter : Palette.sleeveOf(t.id),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 3,
-              spreadRadius: .5,
-            ),
-          ],
-        ),
-        foregroundDecoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: const Color(0x33000000), width: 1),
-        ),
+      child: SizedBox.square(
+        dimension: 92,
         child: ClipOval(
           child: t == null
               ? const ColoredBox(color: Palette.butter)
@@ -637,30 +619,15 @@ class _Disc extends StatelessWidget {
         ),
       ),
     );
-    const platter = RepaintBoundary(
-      child: SizedBox.expand(child: CustomPaint(painter: _Platter())),
-    );
     const grooves = RepaintBoundary(
       child: SizedBox.expand(child: CustomPaint(painter: _Grooves())),
     );
-    // 쇠로 된 축입니다. 왼쪽 위에서 빛을 받습니다.
     const spindle = SizedBox.square(
-      dimension: 11,
+      dimension: 8,
       child: DecoratedBox(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(
-            center: Alignment(-.35, -.4),
-            colors: [Color(0xFFFFFFFF), Color(0xFFB5B7BC), Color(0xFF6E7076)],
-            stops: [0, .45, 1],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x99000000),
-              blurRadius: 2,
-              offset: Offset(.5, 1),
-            ),
-          ],
+          color: Palette.ground,
         ),
       ),
     );
@@ -674,7 +641,7 @@ class _Disc extends StatelessWidget {
         return DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: const Color(0xFF9A9DA3),
+            color: const Color(0xFF111113),
             boxShadow: [
               BoxShadow(
                 color: Color.fromRGBO(22, 26, 26, 0.22 - 0.05 * b),
@@ -683,45 +650,20 @@ class _Disc extends StatelessWidget {
               ),
             ],
           ),
-          // 바깥은 은색 플래터 테두리이고, 그 위에 검은 판이 얹혀 함께 돕니다.
           child: Stack(
             alignment: Alignment.center,
             children: [
-              Transform.rotate(angle: turn, child: platter),
+              Transform.rotate(angle: turn, child: grooves),
               Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.all(_Platter.rim),
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0xFF111113),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Color(0x99000000),
-                          blurRadius: 4,
-                          offset: Offset(0, 1.5),
-                        ),
-                      ],
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Transform.rotate(angle: turn, child: grooves),
-                        Positioned.fill(
-                          child: CustomPaint(
-                            painter: _Sheen(
-                              strength: 0.55 + 0.45 * spin,
-                              drift: m._reduce ? 0 : 0.18 * sin(m._clock * 0.7),
-                            ),
-                          ),
-                        ),
-                        Transform.rotate(angle: turn, child: label),
-                        spindle,
-                      ],
-                    ),
+                child: CustomPaint(
+                  painter: _Sheen(
+                    strength: 0.55 + 0.45 * spin,
+                    drift: m._reduce ? 0 : 0.18 * sin(m._clock * 0.7),
                   ),
                 ),
               ),
+              Transform.rotate(angle: turn, child: label),
+              spindle,
             ],
           ),
         );
@@ -752,37 +694,21 @@ class _Grooves extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final outer = size.width / 2;
-    // 가장자리는 살짝 솟은 턱입니다. 바깥 모서리가 빛을 받고 그 안쪽은 어둡게 꺼집니다.
-    canvas
-      ..drawCircle(
-        center,
-        outer - .8,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4
-          ..color = const Color(0x2EFFFFFF),
-      )
-      ..drawCircle(
-        center,
-        outer - 3,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.6
-          ..color = const Color(0xFF070708),
-      );
+    // 가장자리 테두리와 소리골이 시작하기 전의 매끈한 띠입니다.
+    canvas.drawCircle(
+      center,
+      outer - 1,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0x14FFFFFF),
+    );
     final fine = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.6;
     var i = 0;
-    for (var r = outer - 7; r > _labelEdge + 9; r -= 1.5, i++) {
-      // 홈마다 밝기를 조금씩 달리해 손으로 찍은 판처럼 결이 생기게 합니다.
-      final grain = 0.022 + 0.03 * ((sin(i * 2.7) + 1) / 2);
-      fine.color = Color.fromRGBO(
-        255,
-        255,
-        255,
-        i.isEven ? grain + 0.02 : grain,
-      );
+    for (var r = outer - 8; r > _labelEdge + 8; r -= 1.7, i++) {
+      fine.color = Color.fromRGBO(255, 255, 255, i.isEven ? 0.055 : 0.028);
       canvas.drawCircle(center, r, fine);
     }
     // 곡 사이 빈 띠입니다. 홈이 없어 조금 더 검고 매끈합니다.
@@ -796,10 +722,10 @@ class _Grooves extends CustomPainter {
     // 소리골이 끝나고 라벨까지 이어지는 매끈한 띠입니다.
     canvas.drawCircle(
       center,
-      _labelEdge + 6,
+      _labelEdge + 5,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 9
+        ..strokeWidth = 8
         ..color = const Color(0xFF0E0E10),
     );
     final arc = Paint()
@@ -827,58 +753,6 @@ class _Grooves extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// 판 밑의 은색 플래터 테두리입니다. 둘레에 스트로보 점이 찍혀 있어 돌 때 함께 흐릅니다.
-class _Platter extends CustomPainter {
-  const _Platter();
-
-  /// 판 둘레로 보이는 플래터 폭입니다.
-  static const rim = 8.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = size.center(Offset.zero);
-    final outer = size.width / 2;
-    final rect = Rect.fromCircle(center: center, radius: outer);
-    canvas.drawCircle(
-      center,
-      outer,
-      Paint()
-        ..shader = const SweepGradient(
-          colors: [
-            Color(0xFFD9DBDF),
-            Color(0xFF8E9198),
-            Color(0xFFE6E7EA),
-            Color(0xFF8A8D94),
-            Color(0xFFD9DBDF),
-          ],
-        ).createShader(rect),
-    );
-    final dot = Paint()..color = const Color(0xB33A3B40);
-    const count = 120;
-    for (var i = 0; i < count; i++) {
-      final a = 2 * pi * i / count;
-      final p = center + Offset(cos(a), sin(a)) * (outer - rim / 2);
-      canvas
-        ..save()
-        ..translate(p.dx, p.dy)
-        ..rotate(a)
-        ..drawRect(const Rect.fromLTWH(-1.6, -1.1, 3.2, 2.2), dot)
-        ..restore();
-    }
-    canvas.drawCircle(
-      center,
-      outer - .5,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = const Color(0x55000000),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 /// 판 위의 빛입니다. 조명은 제자리라 돌지 않고, 판이 돌면 조금 밝아지며 천천히 일렁입니다.
 class _Sheen extends CustomPainter {
   const _Sheen({required this.strength, required this.drift});
@@ -890,8 +764,7 @@ class _Sheen extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final outer = size.width / 2 - 4;
-    final light = Color.fromRGBO(255, 255, 255, 0.17 * strength);
-    final soft = Color.fromRGBO(255, 255, 255, 0.05 * strength);
+    final light = Color.fromRGBO(255, 255, 255, 0.10 * strength);
     const clear = Color(0x00FFFFFF);
     final ring = Path()
       ..fillType = PathFillType.evenOdd
@@ -900,20 +773,8 @@ class _Sheen extends CustomPainter {
     final paint = Paint()
       ..shader = SweepGradient(
         transform: GradientRotation(-pi * 0.75 + drift),
-        // 마주 보는 두 갈래 빛이 판 위에 서 있습니다. 가운데가 가장 밝고 둘레로 번집니다.
-        colors: [
-          clear,
-          soft,
-          light,
-          soft,
-          clear,
-          clear,
-          soft,
-          light,
-          soft,
-          clear,
-        ],
-        stops: const [0.0, 0.03, 0.075, 0.12, 0.2, 0.5, 0.53, 0.575, 0.62, 0.7],
+        colors: [clear, light, clear, clear, light, clear, clear],
+        stops: const [0.0, 0.07, 0.16, 0.5, 0.57, 0.66, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: outer));
     canvas.drawPath(ring, paint);
   }

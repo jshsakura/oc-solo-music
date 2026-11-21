@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'api.dart';
 import 'widgets/artist_tag.dart';
+import 'widgets/scroll_header.dart';
 import 'theme.dart';
 import 'widgets/motion.dart';
 import 'widgets/skeleton.dart';
@@ -73,84 +74,95 @@ class _LibraryScreenState extends State<LibraryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 2),
-            child: Text(
-              S.of(context).tabLibrary,
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: waiting
-                ? const Skeleton(
-                    label: false,
-                    child: TextBone(style: countStyle, width: 110),
-                  )
-                : Text(
-                    S.of(context).libraryCount(widget.tracks.length, likes),
-                    style: countStyle,
-                  ),
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Palette.line)),
-            ),
-            child: Row(
-              children: [
-                for (final c in Crate.values)
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: () {
-                        if (c == _crate) return;
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _crate = c;
-                          _shownAt = DateTime.now();
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        height: 36,
-                        margin: const EdgeInsets.only(right: 18),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: c == _crate
-                                  ? Palette.ink
-                                  : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _crateName(S.of(context), c),
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: c == _crate
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: c == _crate ? Palette.ink : Palette.faint,
-                          ),
-                        ),
+          Expanded(
+            child: HeaderedBody(
+              header: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 2),
+                    child: Text(
+                      S.of(context).tabLibrary,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: LoadSwitch(
-              loading: waiting,
-              skeleton: const _ListSkeleton(),
-              child: _body(shown),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: waiting
+                        ? const Skeleton(
+                            label: false,
+                            child: TextBone(style: countStyle, width: 110),
+                          )
+                        : Text(
+                            S
+                                .of(context)
+                                .libraryCount(widget.tracks.length, likes),
+                            style: countStyle,
+                          ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Palette.line)),
+                    ),
+                    child: Row(
+                      children: [
+                        for (final c in Crate.values)
+                          MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            child: GestureDetector(
+                              onTap: () {
+                                if (c == _crate) return;
+                                HapticFeedback.selectionClick();
+                                setState(() {
+                                  _crate = c;
+                                  _shownAt = DateTime.now();
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 220),
+                                height: 36,
+                                margin: const EdgeInsets.only(right: 18),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: c == _crate
+                                          ? Palette.ink
+                                          : Colors.transparent,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  _crateName(S.of(context), c),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: c == _crate
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: c == _crate
+                                        ? Palette.ink
+                                        : Palette.faint,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              body: LoadSwitch(
+                loading: waiting,
+                skeleton: const _ListSkeleton(),
+                child: _body(shown),
+              ),
             ),
           ),
         ],

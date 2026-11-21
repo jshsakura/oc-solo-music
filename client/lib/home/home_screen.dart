@@ -5,10 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api.dart';
 import '../l10n.dart';
+import '../widgets/scroll_header.dart';
 import '../theme.dart';
 import '../widgets/skeleton.dart';
 import 'crate_math.dart';
 import 'crate_stage.dart';
+import 'jukebox.dart';
 import 'shelf_grid.dart';
 
 String _crateName(S s, HomeCrate c) => switch (c) {
@@ -74,26 +76,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 왼쪽 메뉴가 보이는 넓은 화면입니다. 거기에 이미 로고가 있어 여기서는 '홈' 제목을 씁니다.
   bool get _wide => MediaQuery.sizeOf(context).width >= 900;
 
+  HomeView get _shownView => _view;
+
+  /// 넓은 화면에서는 판 상자 자리에 표지를 가로로 펼친 주크박스를 씁니다.
+  bool get _jukebox => _wide && _view == HomeView.crate;
+
   /// 처음 곡 목록을 받는 중입니다. 다시 받을 때는 있던 판을 그대로 둡니다.
   bool get _waiting => widget.loading && widget.tracks.isEmpty;
-
-  /// 저장해 둔 보기를 되살렸거나 사용자가 직접 바꿨습니다. 그 뒤로는 폭으로 정하지 않습니다.
-  bool get _chosen => _userSwitched || _restored;
-  bool _restored = false;
 
   @override
   void initState() {
     super.initState();
     _restoreView();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 고른 적이 없으면 넓은 화면은 격자로, 폰은 판 상자로 시작합니다. 저장해 둔 보기가 있으면 그게 이깁니다.
-    // 웹은 첫 프레임에 폭이 0 으로 올 수 있어, 사용자가 고르기 전까지는 폭이 바뀔 때마다 다시 정합니다.
-    if (_chosen) return;
-    _view = _wide ? HomeView.shelf : HomeView.crate;
   }
 
   Future<void> _restoreView() async {
@@ -102,7 +96,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final saved = prefs.getString(homeViewKey);
       final view = HomeView.values.where((v) => v.name == saved).firstOrNull;
       if (view != null && mounted && !_userSwitched) {
-        _restored = true;
         setState(() => _view = view);
       }
     } catch (_) {
@@ -226,112 +219,123 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (_wide)
-                  Text(
-                    s.tabHome,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: Palette.ink,
-                      letterSpacing: -.4,
-                    ),
-                  )
-                else
-                  Text.rich(
-                    TextSpan(
-                      text: 'solo',
+          Expanded(
+            child: HeaderedBody(
+              header: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        TextSpan(
-                          text: '.',
-                          style: letterStyle(
-                            30,
-                          ).copyWith(color: Palette.butter),
+                        if (_wide)
+                          Text(
+                            s.tabHome,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              color: Palette.ink,
+                              letterSpacing: -.4,
+                            ),
+                          )
+                        else
+                          Text.rich(
+                            TextSpan(
+                              text: 'solo',
+                              children: [
+                                TextSpan(
+                                  text: '.',
+                                  style: letterStyle(
+                                    30,
+                                  ).copyWith(color: Palette.butter),
+                                ),
+                              ],
+                            ),
+                            style: letterStyle(30),
+                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_waiting)
+                              const Skeleton(
+                                label: false,
+                                child: TextBone(
+                                  style: TextStyle(fontSize: 12),
+                                  width: 34,
+                                ),
+                              )
+                            else
+                              AnimatedBuilder(
+                                animation: _pos,
+                                builder: (_, _) => Text(
+                                  shown.isEmpty
+                                      ? '0'
+                                      : _shownView == HomeView.shelf || _jukebox
+                                      ? '${shown.length}'
+                                      : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Palette.faint,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ...[
+                              const SizedBox(width: 10),
+                              _ViewToggle(
+                                view: _view,
+                                label: _shownView == HomeView.crate
+                                    ? s.homeViewShelf
+                                    : s.homeViewCrate,
+                                onTap: _toggleView,
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
-                    style: letterStyle(30),
                   ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_waiting)
-                      const Skeleton(
-                        label: false,
-                        child: TextBone(
-                          style: TextStyle(fontSize: 12),
-                          width: 34,
-                        ),
-                      )
-                    else
-                      AnimatedBuilder(
-                        animation: _pos,
-                        builder: (_, _) => Text(
-                          shown.isEmpty
-                              ? '0'
-                              : _view == HomeView.shelf
-                              ? '${shown.length}'
-                              : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Palette.faint,
-                            fontFeatures: [FontFeature.tabularFigures()],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        for (final c in HomeCrate.values)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _Chip(
+                              label: _crateName(s, c),
+                              on: c == _crate,
+                              onTap: () => _pick(c),
+                            ),
                           ),
-                        ),
-                      ),
-                    const SizedBox(width: 10),
-                    _ViewToggle(
-                      view: _view,
-                      label: _view == HomeView.crate
-                          ? s.homeViewShelf
-                          : s.homeViewCrate,
-                      onTap: _toggleView,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                for (final c in HomeCrate.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _Chip(
-                      label: _crateName(s, c),
-                      on: c == _crate,
-                      onTap: () => _pick(c),
+                      ],
                     ),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: _still || !_userSwitched
-                  ? Duration.zero
-                  : const Duration(milliseconds: 320),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, a) => FadeTransition(
-                opacity: a,
-                child: ScaleTransition(
-                  scale: Tween(begin: .96, end: 1.0).animate(a),
-                  alignment: Alignment.topCenter,
-                  child: child,
-                ),
+                  const SizedBox(height: 8),
+                ],
               ),
-              child: KeyedSubtree(
-                key: ValueKey(_view),
-                child: _stage(s, shown),
+              body: AnimatedSwitcher(
+                duration: _still || !_userSwitched
+                    ? Duration.zero
+                    : const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, a) => FadeTransition(
+                  opacity: a,
+                  child: ScaleTransition(
+                    scale: Tween(begin: .96, end: 1.0).animate(a),
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
+                ),
+                child: KeyedSubtree(
+                  key: ValueKey(_shownView),
+                  child: _stage(s, shown),
+                ),
               ),
             ),
           ),
@@ -343,7 +347,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   /// 곡 목록을 받는 동안은 지금 보기와 같은 모양의 빈 자리를 두고, 받으면 그 위로 판이 들어옵니다.
   Widget _stage(S s, List<Track> shown) => LoadSwitch(
     loading: _waiting,
-    skeleton: _view == HomeView.shelf
+    skeleton: _shownView == HomeView.shelf
         ? const ShelfSkeleton()
         : Skeleton(
             key: const Key('home-stage-skeleton'),
@@ -380,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         : shown.isEmpty
         ? s.emptyCrate
         : null;
-    if (_view == HomeView.shelf) {
+    if (_shownView == HomeView.shelf) {
       if (message != null) {
         return Center(
           child: Padding(
@@ -397,6 +401,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         key: ValueKey(_crate),
         api: widget.api,
         tracks: shown,
+        playLabel: s.homeShelfPlay,
+        onPlay: _playFrom,
+      );
+    }
+    if (_jukebox) {
+      if (message != null) {
+        return Center(
+          child: Text(
+            message,
+            style: const TextStyle(fontSize: 14, color: Palette.secondary),
+          ),
+        );
+      }
+      return Jukebox(
+        key: ValueKey(_crate),
+        api: widget.api,
+        tracks: shown,
+        hint: s.jukeboxHint,
         playLabel: s.homeShelfPlay,
         onPlay: _playFrom,
       );

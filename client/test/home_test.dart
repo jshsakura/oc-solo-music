@@ -108,7 +108,12 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      // 넓은 화면의 주크박스는 레코드가 계속 돌아 멈추기를 기다릴 수 없으니 정해진 시간만 흘려 보냅니다.
+      if (width >= 900) {
+        await tester.pump(const Duration(seconds: 1));
+      } else {
+        await tester.pumpAndSettle();
+      }
     }
 
     testWidgets('flips, pulls the record out and loads that record', (
@@ -216,8 +221,11 @@ void main() {
     });
 
     testWidgets('crate chips filter the shelf too', (tester) async {
-      // 넓은 화면은 처음부터 격자로 엽니다.
+      // 넓은 화면은 주크박스로 열고, 단추로 격자로 바꿉니다.
       await pump(tester, _all, width: 900);
+      expect(find.byKey(const Key('home-jukebox')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('home-view-toggle')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('home-shelf')), findsOneWidget);
 
       await tester.tap(find.text('Liked'));
@@ -236,8 +244,11 @@ void main() {
     testWidgets('tapping a cover plays that crate from that record', (
       tester,
     ) async {
-      // 넓은 화면은 처음부터 격자로 엽니다.
+      // 넓은 화면은 주크박스로 열고, 단추로 격자로 바꿉니다.
       await pump(tester, _all, width: 900);
+      expect(find.byKey(const Key('home-jukebox')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('home-view-toggle')));
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('home-shelf')), findsOneWidget);
       await tester.tap(find.text('Liked'));
       await tester.pumpAndSettle();
