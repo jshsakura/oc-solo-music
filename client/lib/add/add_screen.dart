@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,10 +12,23 @@ import 'jobs_watch.dart';
 
 /// 추가 화면입니다. 내가 만든 수노 곡 주소는 녹음 대기열에 넣고, 가진 곡 파일은 바로 올립니다.
 class AddScreen extends StatefulWidget {
-  const AddScreen({super.key, required this.api, required this.watch});
+  const AddScreen({
+    super.key,
+    required this.api,
+    required this.watch,
+    this.opened,
+  });
 
   final Api api;
   final JobsWatch watch;
+
+  /// 추가 탭을 누를 때마다 값이 오릅니다. 그때 클립보드의 수노 주소를 입력칸에 넣습니다.
+  final ValueListenable<int>? opened;
+
+  /// 클립보드 글에서 수노 곡 주소만 골라냅니다.
+  static List<String> sunoLinks(String text) => RegExp(
+    r'https?://(?:www\.)?suno\.com/(?:song|s|hook)/[A-Za-z0-9-]+',
+  ).allMatches(text).map((m) => m.group(0)!).toSet().toList();
 
   @override
   State<AddScreen> createState() => _AddScreenState();
@@ -40,8 +54,35 @@ class _AddScreenState extends State<AddScreen> {
     'aac',
   ];
 
+  /// 이미 한 번 넣어 준 클립보드 글입니다. 지운 뒤 탭을 다시 열어도 또 넣지 않습니다.
+  String? _pasted;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.opened?.addListener(_pasteFromClipboard);
+    // 처음 여는 순간에는 이 화면이 막 만들어져 알림을 놓치므로 바로 한 번 읽습니다.
+    if (widget.opened != null) _pasteFromClipboard();
+  }
+
+  Future<void> _pasteFromClipboard() async {
+    final String? text;
+    try {
+      text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    } on Exception {
+      return; // 권한을 거절하면 그냥 손으로 붙여 넣으면 됩니다.
+    }
+    if (!mounted || text == null || text == _pasted) return;
+    final links = AddScreen.sunoLinks(text);
+    if (links.isEmpty || _input.text.trim().isNotEmpty) return;
+    _pasted = text;
+    _input.text = links.join('\n');
+    _say(S.of(context).pastedFromClipboard(links.length));
+  }
+
   @override
   void dispose() {
+    widget.opened?.removeListener(_pasteFromClipboard);
     _input.dispose();
     _focus.dispose();
     super.dispose();

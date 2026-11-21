@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../player_controller.dart';
@@ -112,28 +114,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         ),
                         child: Row(
                           children: [
-                            Text(
-                              S.of(context).nowPlaying,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Palette.secondary,
-                              ),
+                            _NowPill(
+                              label: S.of(context).nowPlaying,
+                              playing: c.playing,
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                c.error != null
-                                    ? S.of(context).cannotOpen
-                                    : (_hint ?? S.of(context).hintStart),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: c.error == null
-                                      ? Palette.faint
-                                      : Palette.bad,
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: _HintChip(
+                                  text: c.error != null
+                                      ? S.of(context).cannotOpen
+                                      : (_hint ?? S.of(context).hintStart),
+                                  bad: c.error != null,
                                 ),
                               ),
                             ),
@@ -195,6 +188,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               onNext: _next,
                               edge: 20,
                               compact: compact,
+                              roomy: MediaQuery.sizeOf(context).width >= 900,
                             ),
                           ],
                         ),
@@ -345,4 +339,150 @@ class _SeekPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SeekPainter old) =>
       old.progress != progress || old.grab != grab || old.playing != playing;
+}
+
+/// 지금 재생 표시입니다. 검은 알약 안에서 막대 셋이 소리에 맞춰 춤추고, 멈추면 막대도 눕습니다.
+class _NowPill extends StatefulWidget {
+  const _NowPill({required this.label, required this.playing});
+
+  final String label;
+  final bool playing;
+
+  @override
+  State<_NowPill> createState() => _NowPillState();
+}
+
+class _NowPillState extends State<_NowPill>
+    with SingleTickerProviderStateMixin {
+  late final _beat = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_NowPill old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  void _sync() {
+    final calm = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (widget.playing && !calm) {
+      if (!_beat.isAnimating) _beat.repeat();
+    } else {
+      _beat.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _beat.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(10, 6, 12, 6),
+    decoration: BoxDecoration(
+      color: Palette.ink,
+      borderRadius: BorderRadius.circular(100),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 14,
+          height: 12,
+          child: AnimatedBuilder(
+            animation: _beat,
+            builder: (context, _) => Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                for (final phase in const [0.0, .35, .7])
+                  Container(
+                    width: 3,
+                    height: widget.playing
+                        ? 4 +
+                              8 *
+                                  (.5 +
+                                          .5 *
+                                              sin(
+                                                (_beat.value + phase) * 2 * pi,
+                                              ))
+                                      .abs()
+                        : 3,
+                    decoration: BoxDecoration(
+                      color: widget.playing ? Palette.butter : Palette.off,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          widget.label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Palette.ground,
+            letterSpacing: .2,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// 오른쪽 안내 문구입니다. 반투명 흰 알약에 담고, 바뀔 때 살짝 갈아 끼웁니다.
+class _HintChip extends StatelessWidget {
+  const _HintChip({required this.text, required this.bad});
+
+  final String text;
+  final bool bad;
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+    duration: const Duration(milliseconds: 220),
+    child: Container(
+      key: ValueKey(text),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: bad ? const Color(0x1FCC3E34) : const Color(0xB3FFFFFF),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: bad ? const Color(0x40CC3E34) : Palette.line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            bad ? Icons.error_outline_rounded : Icons.touch_app_outlined,
+            size: 13,
+            color: bad ? Palette.bad : Palette.faint,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+                color: bad ? Palette.bad : Palette.secondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

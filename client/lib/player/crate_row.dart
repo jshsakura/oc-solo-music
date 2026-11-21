@@ -19,6 +19,7 @@ class CrateRow extends StatefulWidget {
     required this.onNext,
     required this.edge,
     this.compact = false,
+    this.roomy = false,
   });
 
   final PlayerController ctl;
@@ -31,6 +32,9 @@ class CrateRow extends StatefulWidget {
   /// 위아래가 짧은 화면에서는 판을 줄입니다.
   final bool compact;
 
+  /// 넓은 화면입니다. 판을 끝에 반쯤 숨기지 않고 크게 다 보이며 제목도 함께 씁니다.
+  final bool roomy;
+
   @override
   State<CrateRow> createState() => _CrateRowState();
 }
@@ -41,6 +45,10 @@ class _CrateRowState extends State<CrateRow> {
   bool _dragging = false;
   String? _peekTitle;
   bool _peekLeft = true;
+
+  void _dragStart() => setState(() => _dragging = true);
+
+  void _dragBy(double dx) => setState(() => _drag += dx);
 
   void _endDrag() {
     final d = _drag;
@@ -63,6 +71,7 @@ class _CrateRowState extends State<CrateRow> {
   @override
   Widget build(BuildContext context) {
     final c = widget.ctl;
+    if (widget.roomy) return _roomy(context, c);
     final size = widget.compact ? 52.0 : 64.0;
     final height = size + 22;
     if (c.queue.length < 2) return SizedBox(height: height);
@@ -133,6 +142,113 @@ class _CrateRowState extends State<CrateRow> {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+extension on _CrateRowState {
+  /// 넓은 화면에서는 이전 곡과 다음 곡을 카드 둘로 나란히 놓고 표지와 제목을 다 보입니다.
+  Widget _roomy(BuildContext context, PlayerController c) {
+    const art = 60.0;
+    const height = art + 24;
+    if (c.queue.length < 2) return const SizedBox(height: height);
+    final s = S.of(context);
+    final pull = _drag.clamp(-60.0, 60.0);
+    final ease = _dragging ? Duration.zero : const Duration(milliseconds: 380);
+    Widget card({required bool left}) {
+      final t = c.peek(left ? -1 : 1);
+      final words = Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: left
+              ? CrossAxisAlignment.start
+              : CrossAxisAlignment.end,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (left)
+                  const Icon(
+                    Icons.skip_previous_rounded,
+                    size: 14,
+                    color: Palette.faint,
+                  ),
+                Text(
+                  left ? s.prevTrack : s.nextTrack,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Palette.faint,
+                  ),
+                ),
+                if (!left)
+                  const Icon(
+                    Icons.skip_next_rounded,
+                    size: 14,
+                    color: Palette.faint,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              t.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: left ? TextAlign.start : TextAlign.end,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Palette.ink,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ),
+      );
+      final cover = Sleeve(track: t, api: c.api, size: art);
+      return Expanded(
+        child: AnimatedSlide(
+          duration: ease,
+          curve: Curves.easeOutBack,
+          offset: Offset(pull / 600, 0),
+          child: _Pick(
+            label: left ? s.prevTrack : s.nextTrack,
+            onTap: left ? widget.onPrev : widget.onNext,
+            onPeek: (_) {},
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xB3FFFFFF),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Palette.line),
+              ),
+              child: Row(
+                children: left
+                    ? [cover, const SizedBox(width: 12), words]
+                    : [words, const SizedBox(width: 12), cover],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (_) => _dragStart(),
+      onHorizontalDragUpdate: (d) => _dragBy(d.delta.dx),
+      onHorizontalDragEnd: (_) => _endDrag(),
+      onHorizontalDragCancel: _endDrag,
+      child: SizedBox(
+        height: height,
+        child: Row(
+          children: [
+            card(left: true),
+            const SizedBox(width: 10),
+            card(left: false),
           ],
         ),
       ),

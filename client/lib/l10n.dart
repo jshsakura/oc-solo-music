@@ -94,6 +94,7 @@ abstract class S {
   String get submit;
   String queued(int n);
   String get alreadyHave;
+  String pastedFromClipboard(int n);
   String get jobDone;
   String get jobFailed;
   String get jobStopped;
@@ -305,6 +306,8 @@ class _Ko extends S {
   String queued(int n) => '$n곡을 대기열에 넣었습니다';
   @override
   String get alreadyHave => '이미 받았거나 대기 중인 곡입니다';
+  @override
+  String pastedFromClipboard(int n) => '복사해 둔 수노 주소 $n개를 넣었습니다. 추가를 누르면 녹음합니다';
   @override
   @override
   @override
@@ -606,6 +609,9 @@ class _En extends S {
   @override
   String get alreadyHave => 'Already saved or in the queue';
   @override
+  String pastedFromClipboard(int n) =>
+      'Pasted $n Suno link${n == 1 ? '' : 's'} from your clipboard. Tap add to record';
+  @override
   @override
   @override
   @override
@@ -904,6 +910,8 @@ class _Ja extends S {
   String queued(int n) => '$n曲をキューに入れました';
   @override
   String get alreadyHave => '保存済みか、すでにキューにある曲です';
+  @override
+  String pastedFromClipboard(int n) => 'コピーしたSunoのリンクを$n件入れました。追加を押すと録音します';
   @override
   @override
   @override
