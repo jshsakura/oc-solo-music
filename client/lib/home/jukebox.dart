@@ -11,8 +11,8 @@ import '../widgets/artist_tag.dart';
 import '../widgets/sleeve.dart';
 import 'crate_parts.dart';
 
-/// 넓은 화면의 홈입니다. 표지를 주크박스처럼 가로로 펼쳐 두고 휠, 화살표, 끌기로 돌립니다.
-/// 가운데 판은 크게 정면을 보고 레코드가 옆으로 빠져나와 돌며, 양옆 판은 뒤로 비스듬히 눕습니다.
+/// 넓은 화면의 홈입니다. 표지를 주크박스처럼 펼쳐 두고 휠, 화살표, 끌기로 돌립니다.
+/// 판은 모두 정면을 보고 아치 모양으로 겹쳐 섭니다. 가운데 판이 가장 크고 레코드가 위로 빠져나와 돕니다.
 /// 가운데 판을 누르면 재생하고, 옆 판을 누르면 그 판을 가운데로 데려옵니다.
 class Jukebox extends StatefulWidget {
   const Jukebox({
@@ -125,10 +125,11 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
+      // 키 큰 화면에서도 빈 데가 남지 않게 높이에 맞춰 크게 잡습니다.
       final cover = min(
-        box.maxHeight * .52,
-        box.maxWidth * .3,
-      ).clamp(160.0, 340.0);
+        box.maxHeight * .44,
+        box.maxWidth * .38,
+      ).clamp(170.0, 440.0);
       return Focus(
         key: const Key('home-jukebox'),
         focusNode: _focus,
@@ -163,11 +164,11 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
 
   Widget _stage(BoxConstraints box, double cover) {
     final p = _pos.value;
-    final mid = Offset(box.maxWidth / 2, box.maxHeight * .42);
+    final mid = Offset(box.maxWidth / 2, box.maxHeight * .4);
     // 가까운 판이 위에 오도록 먼 판부터 그립니다.
     final order = [
       for (var i = 0; i < _count; i++)
-        if ((i - p).abs() < 7) i,
+        if ((i - p).abs() < 4.6) i,
     ]..sort((a, b) => (b - p).abs().compareTo((a - p).abs()));
     final front = _count == 0 ? null : widget.tracks[_front];
     return Stack(
@@ -178,7 +179,8 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
           Positioned(
             left: 0,
             right: 0,
-            top: mid.dy + cover / 2 + cover * .36,
+            // 바로 옆 판이 아치를 따라 내려간 만큼 더 아래에 제목을 둡니다.
+            top: mid.dy + cover / 2 + cover * .1 + 22,
             child: _caption(front),
           ),
         Positioned(
@@ -199,29 +201,30 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
     final a = d.abs();
     final side = d.sign;
     final near = min(a, 1.0);
-    // 가운데에서 한 칸까지는 크게 벌어지고, 그 뒤로는 촘촘히 겹쳐 섭니다.
-    final x = side * (near * cover * .78 + max(0.0, a - 1) * cover * .24);
-    final turn = -side * near * 1.05;
-    final scale = 1 - .18 * near;
     final t = widget.tracks[i];
     final center = a < .5;
-    // 가운데 판은 레코드가 오른쪽으로 빠져나와 돕니다.
-    final out = (1 - min(a * 2, 1.0)) * cover * .42;
-    final matrix = Matrix4.identity()
-      ..setEntry(3, 2, .0011)
-      ..translateByDouble(x, 0, -near * 120 - max(0.0, a - 1) * 30, 1)
-      ..rotateY(turn)
-      ..scaleByDouble(scale, scale, 1, 1);
+    // 모든 판이 정면을 보고 아치를 따라 겹쳐 섭니다. 가운데에서 멀수록 작아지고 아래로 내려가며
+    // 아치 모양대로 살짝 기웁니다.
+    final x = side * (near * cover * .66 + max(0.0, a - 1) * cover * .44);
+    final y = cover * .09 * a * a;
+    final scale = 1 - .15 * min(a, 3.0);
+    final tilt = (d * .07).clamp(-.24, .24);
+    // 가운데 판은 레코드가 위로 빠져나와 돕니다.
+    final out = (1 - min(a * 2, 1.0)) * cover * .3;
+    final fade = (1 - max(0.0, a - 3) / 1.5).clamp(0.0, 1.0);
     return Positioned(
       left: mid.dx - cover / 2,
       top: mid.dy - cover / 2,
       width: cover,
       height: cover,
       child: Transform(
-        alignment: Alignment.center,
-        transform: matrix,
+        alignment: Alignment.bottomCenter,
+        transform: Matrix4.identity()
+          ..translateByDouble(x, y, 0, 1)
+          ..rotateZ(tilt)
+          ..scaleByDouble(scale, scale, 1, 1),
         child: Opacity(
-          opacity: (1 - max(0.0, a - 4) / 3).clamp(0.0, 1.0),
+          opacity: fade,
           child: Semantics(
             button: true,
             label: widget.playLabel(t.title),
@@ -235,10 +238,10 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
                   children: [
                     if (out > 1)
                       Positioned(
-                        left: out * .9,
-                        top: cover * .04,
-                        width: cover * .92,
-                        height: cover * .92,
+                        left: cover * .06,
+                        top: cover * .06 - out,
+                        width: cover * .88,
+                        height: cover * .88,
                         child: Transform.rotate(
                           angle: _spin.value * 2 * pi,
                           child: const FittedBox(
@@ -259,10 +262,10 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
                                 22,
                                 22,
                                 26,
-                                .18 + .2 * (1 - near),
+                                .14 + .16 * (1 - near),
                               ),
-                              blurRadius: 20 + 20 * (1 - near),
-                              offset: Offset(0, 12 + 10 * (1 - near)),
+                              blurRadius: 18 + 18 * (1 - near),
+                              offset: Offset(0, 10 + 10 * (1 - near)),
                             ),
                           ],
                         ),
@@ -271,38 +274,6 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
                           api: widget.api,
                           size: cover,
                           radius: 8,
-                        ),
-                      ),
-                    ),
-                    // 바닥에 비친 표지입니다. 아래로 갈수록 흐려집니다.
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: cover + 6,
-                      height: cover * .3,
-                      child: IgnorePointer(
-                        child: ShaderMask(
-                          shaderCallback: (r) => const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0x40000000), Color(0x00000000)],
-                          ).createShader(r),
-                          blendMode: BlendMode.dstIn,
-                          child: ClipRect(
-                            child: OverflowBox(
-                              alignment: Alignment.topCenter,
-                              maxHeight: cover,
-                              child: Transform.flip(
-                                flipY: true,
-                                child: Sleeve(
-                                  track: t,
-                                  api: widget.api,
-                                  size: cover,
-                                  radius: 8,
-                                ),
-                              ),
-                            ),
-                          ),
                         ),
                       ),
                     ),
