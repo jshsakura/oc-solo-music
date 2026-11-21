@@ -440,20 +440,26 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       width: Turntable.size.width,
       height: Turntable.size.height,
       decoration: BoxDecoration(
-        color: Palette.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Palette.line),
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_Deck.top, _Deck.bottom],
+        ),
+        border: Border.all(color: _Deck.edge),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F16161A),
-            blurRadius: 10,
-            offset: Offset(0, 2),
+            color: Color(0x2916161A),
+            blurRadius: 24,
+            offset: Offset(0, 10),
           ),
         ],
       ),
       clipBehavior: Clip.hardEdge,
       child: Stack(
         children: [
+          // 오른쪽 아래의 전원 불빛과 회전수 표시입니다. 돌 때 불빛이 켜집니다.
+          Positioned(right: 22, bottom: 18, child: _PowerLamp(on: _c.playing)),
           Positioned(
             left: _discLeft,
             top: _discTop,
@@ -602,7 +608,7 @@ class _Disc extends StatelessWidget {
         return DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Palette.ink,
+            color: const Color(0xFF111113),
             boxShadow: [
               BoxShadow(
                 color: Color.fromRGBO(22, 26, 26, 0.22 - 0.05 * b),
@@ -644,46 +650,70 @@ class _Letter extends StatelessWidget {
   );
 }
 
-/// 판의 홈입니다. 한 번 그려 두고 돌리기만 합니다. 끊긴 호들이 있어서 도는 게 눈에 보입니다.
+/// 판의 홈입니다. 한 번 그려 두고 돌리기만 합니다. 아주 가는 홈을 촘촘히 긋고,
+/// 곡 사이의 빈 띠 몇 줄과 끊긴 반사 호를 섞어 판이 도는 게 보이게 합니다.
 class _Grooves extends CustomPainter {
   const _Grooves();
+
+  static const _labelEdge = 50.0;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
-    final groove = Paint()
+    final outer = size.width / 2;
+    // 가장자리 테두리와 소리골이 시작하기 전의 매끈한 띠입니다.
+    canvas.drawCircle(
+      center,
+      outer - 1,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0x14FFFFFF),
+    );
+    final fine = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = const Color(0x12FFFFFF);
-    for (final inset in [22.0, 44.0, 66.0]) {
-      canvas.drawCircle(center, size.width / 2 - inset, groove);
+      ..strokeWidth = 0.6;
+    var i = 0;
+    for (var r = outer - 8; r > _labelEdge + 8; r -= 1.7, i++) {
+      fine.color = Color.fromRGBO(255, 255, 255, i.isEven ? 0.055 : 0.028);
+      canvas.drawCircle(center, r, fine);
     }
+    // 곡 사이 빈 띠입니다. 홈이 없어 조금 더 검고 매끈합니다.
+    final gap = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..color = const Color(0xFF0C0C0E);
+    for (final inset in const [30.0, 52.0, 71.0]) {
+      canvas.drawCircle(center, outer - inset, gap);
+    }
+    // 소리골이 끝나고 라벨까지 이어지는 매끈한 띠입니다.
+    canvas.drawCircle(
+      center,
+      _labelEdge + 5,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..color = const Color(0xFF0E0E10),
+    );
     final arc = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
+      ..strokeWidth = 1
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0x1FFFFFFF);
+      ..color = const Color(0x24FFFFFF);
     for (final (inset, from, sweep) in const [
-      (14.0, 0.4, 0.9),
-      (31.0, 2.6, 0.6),
-      (38.0, 4.4, 1.1),
-      (55.0, 1.5, 0.7),
-      (74.0, 3.6, 0.8),
+      (18.0, 0.4, 0.7),
+      (40.0, 2.6, 0.5),
+      (61.0, 4.4, 0.8),
+      (80.0, 1.5, 0.5),
     ]) {
-      final r = size.width / 2 - inset;
       canvas.drawArc(
-        Rect.fromCircle(center: center, radius: r),
+        Rect.fromCircle(center: center, radius: outer - inset),
         from,
         sweep,
         false,
         arc,
       );
     }
-    canvas.drawCircle(
-      Offset(center.dx, 24),
-      2,
-      Paint()..color = const Color(0x59FFFFFF),
-    );
   }
 
   @override
@@ -721,51 +751,83 @@ class _Sheen extends CustomPainter {
       old.strength != strength || old.drift != drift;
 }
 
-/// 톤암입니다. 들릴수록 그림자가 멀어지고 헤드가 조금 커 보여서 떠 있는 게 느껴집니다.
+/// 톤암입니다. 은색 봉이 중간에서 한 번 꺾여 흰 헤드로 이어집니다.
+/// 들릴수록 그림자가 멀어지고 헤드가 조금 커 보여서 떠 있는 게 느껴집니다.
+/// 바늘 끝은 (30, 207) 에 있어야 바늘 안내선과 맞습니다.
 class _ArmPainter extends CustomPainter {
   const _ArmPainter(this.lift);
 
   final double lift;
 
-  static final _rod = RRect.fromRectAndRadius(
-    const Rect.fromLTWH(28, 0, 4, 196),
-    const Radius.circular(2),
-  );
+  static const _tip = Offset(30, 207);
+  // 긴 봉은 거의 곧게 내려오다가 끝에서 40도쯤 꺾여 헤드로 이어집니다.
+  static const _knee = Offset(62, 170);
+  static const _bend = 0.71; // 꺾인 마디의 기울기(라디안)입니다. 헤드도 이 각도로 붙습니다.
+  static final _rod = Path()
+    ..moveTo(30, 0)
+    ..lineTo(_knee.dx, _knee.dy)
+    ..lineTo(30 + 18 * 0.652, 207 - 18 * 0.758);
   static final _head = RRect.fromRectAndRadius(
-    const Rect.fromLTWH(22, 188, 16, 26),
-    const Radius.circular(5),
+    Rect.fromCenter(center: const Offset(30, 196), width: 15, height: 24),
+    const Radius.circular(4),
   );
 
   @override
   void paint(Canvas canvas, Size size) {
     final up = lift.clamp(-0.2, 1.2);
-    final shadow = Paint()..color = const Color(0x1C16161A);
-    final away = Offset(1.5 + 5 * max(0.0, up), 2 + 6 * max(0.0, up));
+    final away = Offset(2 + 6 * max(0.0, up), 3 + 7 * max(0.0, up));
+    final shadow = Paint()
+      ..color = const Color(0x55000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+    final rod = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
     canvas
-      ..drawRRect(_rod.shift(away), shadow)
+      ..drawPath(_rod.shift(away), rod.withShadow(shadow, 4))
       ..drawRRect(_head.shift(away), shadow)
-      ..drawRRect(_rod, Paint()..color = const Color(0xFFC9C7C0));
+      ..drawPath(_rod, rod.withColor(const Color(0xFFB9BCC2), 4))
+      ..drawPath(_rod, rod.withColor(const Color(0xFFECEDEF), 1.4));
     final scale = 1 + 0.08 * up;
-    final c = _head.center;
+    // 헤드는 바늘 끝을 축으로 살짝 비틀어 붙여서 바늘 끝이 늘 헤드 끝에 있게 합니다.
+    const c = _tip;
     canvas
       ..save()
       ..translate(c.dx, c.dy)
+      ..rotate(_bend)
       ..scale(scale)
       ..translate(-c.dx, -c.dy)
-      ..drawRRect(_head, Paint()..color = Palette.ink)
+      ..drawRRect(_head, Paint()..color = const Color(0xFFF4F3EF))
       ..drawRRect(
-        _head.deflate(0.75),
+        _head.deflate(0.5),
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5
-          ..color = Palette.line2,
+          ..strokeWidth = 1
+          ..color = const Color(0xFFCFCDC6),
       )
-      ..drawCircle(Offset(c.dx, 207), 2.2, Paint()..color = Palette.butter)
-      ..restore();
+      ..restore()
+      ..drawCircle(_tip, 2, Paint()..color = Palette.butter);
   }
 
   @override
   bool shouldRepaint(_ArmPainter old) => old.lift != lift;
+}
+
+extension on Paint {
+  Paint withColor(Color c, double width) => Paint()
+    ..style = style
+    ..strokeCap = strokeCap
+    ..strokeJoin = strokeJoin
+    ..strokeWidth = width
+    ..color = c;
+
+  Paint withShadow(Paint shadow, double width) => Paint()
+    ..style = style
+    ..strokeCap = strokeCap
+    ..strokeJoin = strokeJoin
+    ..strokeWidth = width
+    ..color = shadow.color
+    ..maskFilter = shadow.maskFilter;
 }
 
 class _Pivot extends StatelessWidget {
@@ -776,20 +838,77 @@ class _Pivot extends StatelessWidget {
     child: Container(
       width: 36,
       height: 36,
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        color: Palette.sunk,
-        border: Border.all(color: Palette.line2),
+        color: Color(0xFF55565D),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       alignment: Alignment.center,
       child: Container(
-        width: 12,
-        height: 12,
+        width: 14,
+        height: 14,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: Palette.butter,
+          gradient: RadialGradient(
+            center: Alignment(-0.3, -0.3),
+            colors: [Color(0xFFFFFFFF), Color(0xFFC9CACE)],
+          ),
         ),
       ),
+    ),
+  );
+}
+
+/// 턴테이블 몸체 색입니다. 판보다 한 톤 밝은 짙은 회색입니다.
+abstract final class _Deck {
+  static const top = Color(0xFF2E2E34);
+  static const bottom = Color(0xFF26262B);
+  static const edge = Color(0xFF3A3A41);
+}
+
+/// 전원 불빛과 회전수 칸입니다.
+class _PowerLamp extends StatelessWidget {
+  const _PowerLamp({required this.on});
+
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: on ? Palette.butter : const Color(0xFF6B5A2E),
+            boxShadow: [
+              if (on)
+                BoxShadow(
+                  color: Palette.butter.withValues(alpha: .6),
+                  blurRadius: 8,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          width: 34,
+          height: 12,
+          decoration: BoxDecoration(
+            color: const Color(0xFF3C3C44),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ],
     ),
   );
 }
