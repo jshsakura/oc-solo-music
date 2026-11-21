@@ -25,7 +25,7 @@ Duration? staggerDelay(int index, Duration sinceStart) {
 double popScale(double t) {
   if (t <= 0 || t >= 1) return 1;
   final fade = (1 - t) * (1 - t);
-  return 1 + 0.38 * sin(t * pi * 2.5) * fade;
+  return 1 + 0.55 * sin(t * pi * 2.5) * fade;
 }
 
 /// 터지는 조각 하나의 상태입니다.

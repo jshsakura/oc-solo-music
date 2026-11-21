@@ -220,22 +220,25 @@ class _Meter extends StatelessWidget {
         Semantics(
           button: true,
           label: s.stopJob,
-          child: GestureDetector(
-            onTap: onCancel,
-            child: Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: _DeckColors.raised,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.center,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onCancel,
               child: Container(
-                width: 14,
-                height: 14,
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
-                  color: _DeckColors.text,
-                  borderRadius: BorderRadius.circular(3),
+                  color: _DeckColors.raised,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: _DeckColors.text,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
               ),
             ),

@@ -71,13 +71,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<Track> get _shown => crateTracks(widget.tracks, _crate);
   bool get _still => MediaQuery.disableAnimationsOf(context);
 
+  /// 왼쪽 메뉴가 보이는 넓은 화면입니다. 거기에 이미 로고가 있어 여기서는 '홈' 제목을 씁니다.
+  bool get _wide => MediaQuery.sizeOf(context).width >= 900;
+
   /// 처음 곡 목록을 받는 중입니다. 다시 받을 때는 있던 판을 그대로 둡니다.
   bool get _waiting => widget.loading && widget.tracks.isEmpty;
+
+  /// 저장해 둔 보기를 되살렸거나 사용자가 직접 바꿨습니다. 그 뒤로는 폭으로 정하지 않습니다.
+  bool get _chosen => _userSwitched || _restored;
+  bool _restored = false;
 
   @override
   void initState() {
     super.initState();
     _restoreView();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 고른 적이 없으면 넓은 화면은 격자로, 폰은 판 상자로 시작합니다. 저장해 둔 보기가 있으면 그게 이깁니다.
+    // 웹은 첫 프레임에 폭이 0 으로 올 수 있어, 사용자가 고르기 전까지는 폭이 바뀔 때마다 다시 정합니다.
+    if (_chosen) return;
+    _view = _wide ? HomeView.shelf : HomeView.crate;
   }
 
   Future<void> _restoreView() async {
@@ -86,6 +102,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final saved = prefs.getString(homeViewKey);
       final view = HomeView.values.where((v) => v.name == saved).firstOrNull;
       if (view != null && mounted && !_userSwitched) {
+        _restored = true;
         setState(() => _view = view);
       }
     } catch (_) {
@@ -214,18 +231,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text.rich(
-                  TextSpan(
-                    text: 'solo',
-                    children: [
-                      TextSpan(
-                        text: '.',
-                        style: letterStyle(30).copyWith(color: Palette.butter),
-                      ),
-                    ],
+                if (_wide)
+                  Text(
+                    s.tabHome,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: Palette.ink,
+                      letterSpacing: -.4,
+                    ),
+                  )
+                else
+                  Text.rich(
+                    TextSpan(
+                      text: 'solo',
+                      children: [
+                        TextSpan(
+                          text: '.',
+                          style: letterStyle(
+                            30,
+                          ).copyWith(color: Palette.butter),
+                        ),
+                      ],
+                    ),
+                    style: letterStyle(30),
                   ),
-                  style: letterStyle(30),
-                ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -371,27 +401,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         onPlay: _playFrom,
       );
     }
-    return GestureDetector(
-      key: const Key('home-stage'),
-      behavior: HitTestBehavior.opaque,
-      onTap: _tap,
-      onVerticalDragStart: _dragStarted,
-      onVerticalDragUpdate: _dragged,
-      onVerticalDragEnd: _dragEnded,
-      child: _fitStage(
-        AnimatedBuilder(
-          animation: Listenable.merge([_pos, _pull]),
-          builder: (_, _) => CrateStage(
-            api: widget.api,
-            tracks: shown,
-            position: _pos.value,
-            pulled: _pull.value,
-            isOut: _out,
-            hint: _out ? s.homeHintOut : s.homeHint,
-            loadLabel: s.homeLoad,
-            loadSemantics: s.homeLoadLabel,
-            onLoad: _load,
-            message: message,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        key: const Key('home-stage'),
+        behavior: HitTestBehavior.opaque,
+        onTap: _tap,
+        onVerticalDragStart: _dragStarted,
+        onVerticalDragUpdate: _dragged,
+        onVerticalDragEnd: _dragEnded,
+        child: _fitStage(
+          AnimatedBuilder(
+            animation: Listenable.merge([_pos, _pull]),
+            builder: (_, _) => CrateStage(
+              api: widget.api,
+              tracks: shown,
+              position: _pos.value,
+              pulled: _pull.value,
+              isOut: _out,
+              hint: _out ? s.homeHintOut : s.homeHint,
+              loadLabel: s.homeLoad,
+              loadSemantics: s.homeLoadLabel,
+              onLoad: _load,
+              message: message,
+            ),
           ),
         ),
       ),
@@ -409,26 +442,29 @@ class _Chip extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
     button: true,
     selected: on,
-    child: GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 150),
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: on ? Palette.ink : Palette.surface,
-          borderRadius: BorderRadius.circular(100),
-          border: Border.all(color: on ? Palette.ink : Palette.line),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: on ? Palette.ground : Palette.secondary,
+    child: MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 150),
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: on ? Palette.ink : Palette.surface,
+            borderRadius: BorderRadius.circular(100),
+            border: Border.all(color: on ? Palette.ink : Palette.line),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: on ? Palette.ground : Palette.secondary,
+            ),
           ),
         ),
       ),
@@ -457,34 +493,37 @@ class _ViewToggle extends StatelessWidget {
         button: true,
         label: label,
         excludeSemantics: true,
-        child: GestureDetector(
-          key: const Key('home-view-toggle'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Palette.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: Palette.line),
-            ),
-            alignment: Alignment.center,
-            child: AnimatedSwitcher(
-              duration: still
-                  ? Duration.zero
-                  : const Duration(milliseconds: 220),
-              transitionBuilder: (child, a) => RotationTransition(
-                turns: Tween(begin: -.12, end: 0.0).animate(a),
-                child: ScaleTransition(scale: a, child: child),
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            key: const Key('home-view-toggle'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Palette.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: Palette.line),
               ),
-              child: Icon(
-                view == HomeView.crate
-                    ? Icons.grid_view_rounded
-                    : Icons.layers_rounded,
-                key: ValueKey(view),
-                size: 18,
-                color: Palette.ink,
+              alignment: Alignment.center,
+              child: AnimatedSwitcher(
+                duration: still
+                    ? Duration.zero
+                    : const Duration(milliseconds: 220),
+                transitionBuilder: (child, a) => RotationTransition(
+                  turns: Tween(begin: -.12, end: 0.0).animate(a),
+                  child: ScaleTransition(scale: a, child: child),
+                ),
+                child: Icon(
+                  view == HomeView.crate
+                      ? Icons.grid_view_rounded
+                      : Icons.layers_rounded,
+                  key: ValueKey(view),
+                  size: 18,
+                  color: Palette.ink,
+                ),
               ),
             ),
           ),

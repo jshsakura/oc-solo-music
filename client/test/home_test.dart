@@ -216,9 +216,9 @@ void main() {
     });
 
     testWidgets('crate chips filter the shelf too', (tester) async {
+      // 넓은 화면은 처음부터 격자로 엽니다.
       await pump(tester, _all, width: 900);
-      await tester.tap(find.byKey(const Key('home-view-toggle')));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-shelf')), findsOneWidget);
 
       await tester.tap(find.text('Liked'));
       await tester.pumpAndSettle();
@@ -236,9 +236,9 @@ void main() {
     testWidgets('tapping a cover plays that crate from that record', (
       tester,
     ) async {
+      // 넓은 화면은 처음부터 격자로 엽니다.
       await pump(tester, _all, width: 900);
-      await tester.tap(find.byKey(const Key('home-view-toggle')));
-      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-shelf')), findsOneWidget);
       await tester.tap(find.text('Liked'));
       await tester.pumpAndSettle();
 

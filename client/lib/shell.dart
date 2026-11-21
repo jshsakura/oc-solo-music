@@ -389,8 +389,8 @@ class _BottomBar extends StatelessWidget {
             AnimatedAlign(
               duration: reducedMotion(context)
                   ? Duration.zero
-                  : const Duration(milliseconds: 420),
-              curve: Curves.easeOutBack,
+                  : const Duration(milliseconds: 560),
+              curve: const Cubic(.34, 1.9, .5, 1),
               alignment: Alignment(
                 -1 + 2 * current.index / (AppTab.values.length - 1),
                 0,
@@ -425,40 +425,43 @@ class _BottomBar extends StatelessWidget {
                     child: Semantics(
                       button: true,
                       selected: t == current,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => onPick(t),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Badge(
-                              isLabelVisible: busy && t == AppTab.add,
-                              smallSize: 8,
-                              backgroundColor: Palette.butter,
-                              child: _TabIcon(
-                                icon: _tabOf(S.of(context), t).$1,
-                                on: t == current,
-                                size: 24,
-                                color: t == current
-                                    ? Palette.ink
-                                    : Palette.faint,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => onPick(t),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Badge(
+                                isLabelVisible: busy && t == AppTab.add,
+                                smallSize: 8,
+                                backgroundColor: Palette.butter,
+                                child: _TabIcon(
+                                  icon: _tabOf(S.of(context), t).$1,
+                                  on: t == current,
+                                  size: 24,
+                                  color: t == current
+                                      ? Palette.ink
+                                      : Palette.faint,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                            AnimatedDefaultTextStyle(
-                              duration: const Duration(milliseconds: 220),
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: t == current
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                                color: t == current
-                                    ? Palette.ink
-                                    : Palette.faint,
+                              const SizedBox(height: 3),
+                              AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 220),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: t == current
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: t == current
+                                      ? Palette.ink
+                                      : Palette.faint,
+                                ),
+                                child: Text(_tabOf(S.of(context), t).$2),
                               ),
-                              child: Text(_tabOf(S.of(context), t).$2),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -527,12 +530,13 @@ class _TabSwapState extends State<_TabSwap>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 300),
+    duration: const Duration(milliseconds: 480),
     value: 1,
   );
+  // 살짝 지나쳤다가 제자리에 서는 탄력 있는 곡선입니다.
   late final Animation<double> _eased = CurvedAnimation(
     parent: _c,
-    curve: Curves.easeOutCubic,
+    curve: Curves.easeOutBack,
   );
 
   @override
@@ -554,12 +558,12 @@ class _TabSwapState extends State<_TabSwap>
     animation: _eased,
     builder: (_, child) {
       final v = _eased.value;
-      if (v >= 1) return child!;
+      if (_c.isCompleted) return child!;
       return Opacity(
-        opacity: v,
+        opacity: (_c.value * 2.2).clamp(0.0, 1.0),
         child: Transform.translate(
-          offset: Offset(28.0 * widget.from * (1 - v), 0),
-          child: Transform.scale(scale: .985 + .015 * v, child: child),
+          offset: Offset(110.0 * widget.from * (1 - v), 0),
+          child: Transform.scale(scale: .9 + .1 * v, child: child),
         ),
       );
     },

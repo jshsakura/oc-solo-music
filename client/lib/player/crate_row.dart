@@ -283,24 +283,27 @@ class _PickState extends State<_Pick> {
   Widget build(BuildContext context) => Semantics(
     button: true,
     label: widget.label,
-    child: GestureDetector(
-      onTapDown: (_) => _set(true),
-      onTapUp: (_) => _set(false),
-      onTapCancel: () => _set(false),
-      onTap: widget.onTap,
-      onLongPressStart: (_) {
-        _set(true);
-        widget.onPeek(true);
-      },
-      onLongPressEnd: (_) {
-        _set(false);
-        widget.onPeek(false);
-      },
-      child: AnimatedScale(
-        scale: _down ? .92 : 1,
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        child: widget.child,
+    child: MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTapDown: (_) => _set(true),
+        onTapUp: (_) => _set(false),
+        onTapCancel: () => _set(false),
+        onTap: widget.onTap,
+        onLongPressStart: (_) {
+          _set(true);
+          widget.onPeek(true);
+        },
+        onLongPressEnd: (_) {
+          _set(false);
+          widget.onPeek(false);
+        },
+        child: AnimatedScale(
+          scale: _down ? .92 : 1,
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          child: widget.child,
+        ),
       ),
     ),
   );
