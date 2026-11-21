@@ -104,6 +104,17 @@
       el.classList.add('gone');
       setTimeout(function () { el.remove(); }, 400);
     };
+    // 예전에 깔린 서비스 워커와 그 캐시를 걷어 냅니다. 남아 있으면 새로 배포한 화면 대신 옛 화면이 뜹니다.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (rs) {
+        rs.forEach(function (r) { r.unregister(); });
+      });
+    }
+    if (window.caches) {
+      caches.keys().then(function (ks) {
+        ks.filter(function (k) { return k.indexOf('flutter') === 0; }).forEach(function (k) { caches.delete(k); });
+      });
+    }
     window.addEventListener('flutter-first-frame', function () {
       setTimeout(window.soloReady, 5000);
     }, { once: true });

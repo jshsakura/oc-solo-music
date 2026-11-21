@@ -19,7 +19,7 @@ class Pressable extends StatefulWidget {
     required this.child,
     this.onTap,
     this.onLongPress,
-    this.scale = .95,
+    this.scale = .88,
   });
 
   final Widget child;
@@ -39,20 +39,23 @@ class _PressableState extends State<Pressable> {
   }
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTapDown: (_) => _set(true),
-    onTapUp: (_) => _set(false),
-    onTapCancel: () => _set(false),
-    onTap: widget.onTap,
-    onLongPress: widget.onLongPress,
-    child: AnimatedScale(
-      scale: _down ? widget.scale : 1,
-      duration: reducedMotion(context)
-          ? Duration.zero
-          : Duration(milliseconds: _down ? 90 : 420),
-      curve: _down ? Curves.easeOut : Curves.elasticOut,
-      child: widget.child,
+  Widget build(BuildContext context) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _set(true),
+      onTapUp: (_) => _set(false),
+      onTapCancel: () => _set(false),
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      child: AnimatedScale(
+        scale: _down ? widget.scale : 1,
+        duration: reducedMotion(context)
+            ? Duration.zero
+            : Duration(milliseconds: _down ? 80 : 650),
+        curve: _down ? Curves.easeOut : Curves.elasticOut,
+        child: widget.child,
+      ),
     ),
   );
 }
@@ -65,7 +68,7 @@ class Appear extends StatefulWidget {
     required this.index,
     required this.child,
     this.since,
-    this.rise = 14,
+    this.rise = 44,
   });
 
   final int index;
@@ -80,11 +83,11 @@ class Appear extends StatefulWidget {
 class _AppearState extends State<Appear> with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 420),
+    duration: const Duration(milliseconds: 620),
   );
   late final Animation<double> _eased = CurvedAnimation(
     parent: _c,
-    curve: Curves.easeOutCubic,
+    curve: Curves.easeOutBack,
   );
   Timer? _wait;
   bool _started = false;
@@ -122,13 +125,16 @@ class _AppearState extends State<Appear> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _eased,
-    builder: (_, child) => _eased.value >= 1
+    builder: (_, child) => _c.isCompleted
         ? child!
         : Opacity(
-            opacity: _eased.value,
+            opacity: (_c.value * 2).clamp(0.0, 1.0),
             child: Transform.translate(
               offset: Offset(0, widget.rise * (1 - _eased.value)),
-              child: child,
+              child: Transform.scale(
+                scale: .86 + .14 * _eased.value,
+                child: child,
+              ),
             ),
           ),
     child: widget.child,

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../widgets/artist_tag.dart';
 import '../theme.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/sleeve.dart';
@@ -163,10 +164,13 @@ class CrateStage extends StatelessWidget {
               child: Semantics(
                 button: true,
                 label: loadSemantics,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onLoad,
-                  child: Center(child: _pill(context)),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onLoad,
+                    child: Center(child: _pill(context)),
+                  ),
                 ),
               ),
             ),
@@ -323,15 +327,8 @@ class _SleeveBody extends StatelessWidget {
                   color: ink,
                 ),
               ),
-              Text(
-                track.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: ink.withValues(alpha: .62),
-                ),
-              ),
+              const SizedBox(height: 4),
+              ArtistTag(track.artist, color: ink),
             ],
           ),
         ),

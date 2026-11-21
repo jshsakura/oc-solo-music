@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../api.dart';
+import '../widgets/artist_tag.dart';
 import '../theme.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/sleeve.dart';
@@ -15,9 +16,8 @@ const _gap = 18.0;
 const _side = 20.0;
 const _maxColumns = 6;
 
-/// 레코드가 슬리브 위로 삐져나온 정도입니다. 표지 크기에 대한 비율입니다.
-const _peek = .12;
-const _peekPressed = .2;
+/// 손을 올리거나 누르면 레코드가 슬리브 위로 이만큼 빠져나옵니다. 표지 크기에 대한 비율입니다.
+const _peekHover = .14;
 
 /// 이 수만큼의 판까지 차례로 들어오고, 그 뒤의 판은 마지막 판과 함께 들어옵니다.
 const _staggered = 12;
@@ -28,7 +28,7 @@ int shelfColumns(double width) {
   return (usable / (_minCell + _gap)).floor().clamp(2, _maxColumns);
 }
 
-/// 판을 책장 선반에 표지가 보이게 세워 둔 보기입니다. 판을 누르면 그 분류를 그 판부터 재생합니다.
+/// 표지를 격자로 늘어놓은 보기입니다. 판을 누르면 그 분류를 그 판부터 재생합니다.
 class ShelfGrid extends StatefulWidget {
   const ShelfGrid({
     super.key,
@@ -51,7 +51,7 @@ class _ShelfGridState extends State<ShelfGrid>
     with SingleTickerProviderStateMixin {
   late final AnimationController _enter = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 900),
+    duration: const Duration(milliseconds: 1100),
   );
 
   @override
@@ -73,9 +73,9 @@ class _ShelfGridState extends State<ShelfGrid>
   Animation<double> _entrance(int i) => CurvedAnimation(
     parent: _enter,
     curve: Interval(
-      math.min(i, _staggered) * .045,
-      math.min(i, _staggered) * .045 + .46,
-      curve: Curves.easeOutCubic,
+      math.min(i, _staggered) * .04,
+      math.min(i, _staggered) * .04 + .5,
+      curve: Curves.easeOutBack,
     ),
   );
 
@@ -127,7 +127,7 @@ class ShelfSkeleton extends StatelessWidget {
       final columns = shelfColumns(box.maxWidth);
       final cell = (box.maxWidth - _side * 2 - _gap * (columns - 1)) / columns;
       // 화면 높이를 다 채울 만큼만 줄을 세웁니다.
-      final rowHeight = cell * (1 + _peekPressed) + 72;
+      final rowHeight = cell + 72;
       final rows = box.maxHeight.isFinite
           ? (box.maxHeight / rowHeight).ceil().clamp(1, 6)
           : 3;
@@ -159,15 +159,8 @@ class _RecordBone extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      SizedBox(
-        width: size,
-        height: size * (1 + _peekPressed),
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Bone(width: size, height: size),
-        ),
-      ),
-      const SizedBox(height: ShelfPlank.height + 10),
+      Bone(width: size, height: size),
+      const SizedBox(height: 10),
       TextBone(
         style: const TextStyle(
           fontSize: 13.5,
@@ -185,7 +178,7 @@ class _RecordBone extends StatelessWidget {
   );
 }
 
-/// 판 한 줄과 그 판들이 서 있는 선반입니다.
+/// 격자의 한 줄입니다.
 class _ShelfRow extends StatelessWidget {
   const _ShelfRow({
     required this.cell,
@@ -199,68 +192,25 @@ class _ShelfRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final standing = cell * (1 + _peekPressed);
     return Padding(
       padding: const EdgeInsets.only(bottom: 26),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 선반은 칸 양옆으로 조금 더 길게 나와 판들을 받칩니다.
-          Positioned(
-            left: -6,
-            right: -6,
-            top: standing - 1,
-            child: const ShelfPlank(),
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var c = 0; c < columns; c++) ...[
-                if (c > 0) const SizedBox(width: _gap),
-                SizedBox(
-                  width: cell,
-                  child: c < children.length ? children[c] : null,
-                ),
-              ],
-            ],
-          ),
+          for (var c = 0; c < columns; c++) ...[
+            if (c > 0) const SizedBox(width: _gap),
+            SizedBox(
+              width: cell,
+              child: c < children.length ? children[c] : null,
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// 얇은 흰 선반입니다. 윗면의 밝은 선과 아래로 번지는 옅은 그림자만으로 떠 있는 듯 보입니다.
-class ShelfPlank extends StatelessWidget {
-  const ShelfPlank({super.key});
-
-  static const height = 6.0;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    height: height,
-    decoration: BoxDecoration(
-      color: Palette.surface,
-      borderRadius: BorderRadius.circular(3),
-      border: const Border(bottom: BorderSide(color: Palette.line)),
-      boxShadow: const [
-        BoxShadow(
-          color: Color(0x1A16161A),
-          blurRadius: 16,
-          spreadRadius: -6,
-          offset: Offset(0, 10),
-        ),
-        BoxShadow(
-          color: Color(0x0F16161A),
-          blurRadius: 2,
-          offset: Offset(0, 1),
-        ),
-      ],
-    ),
-  );
-}
-
-/// 선반에 세운 판 하나입니다. 누르는 동안 살짝 작아지며 레코드가 더 올라옵니다.
+/// 격자의 판 하나입니다. 손을 올리면 떠오르며 레코드가 빠져나오고, 누르면 꾹 눌렸다 튕깁니다.
 class _ShelfRecord extends StatefulWidget {
   const _ShelfRecord({
     super.key,
@@ -285,6 +235,7 @@ class _ShelfRecord extends StatefulWidget {
 
 class _ShelfRecordState extends State<_ShelfRecord> {
   bool _down = false;
+  bool _hover = false;
 
   void _press(bool down) {
     if (down != _down) setState(() => _down = down);
@@ -293,23 +244,23 @@ class _ShelfRecordState extends State<_ShelfRecord> {
   @override
   Widget build(BuildContext context) {
     final still = MediaQuery.disableAnimationsOf(context);
-    final quick = still ? Duration.zero : const Duration(milliseconds: 160);
     final size = widget.size;
     final disc = size * .9;
-    final peek = size * (_down ? _peekPressed : _peek);
+    final lifted = _hover || _down;
+    final peek = lifted ? size * _peekHover : 0.0;
     final t = widget.track;
 
     final record = SizedBox(
       width: size,
-      height: size * (1 + _peekPressed),
+      height: size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           AnimatedPositioned(
-            duration: still ? Duration.zero : const Duration(milliseconds: 260),
+            duration: still ? Duration.zero : const Duration(milliseconds: 420),
             curve: Curves.easeOutBack,
             left: (size - disc) / 2,
-            top: size * _peekPressed - peek,
+            top: (size - disc) / 2 - peek,
             width: disc,
             height: disc,
             // 판 상자의 레코드를 같은 비율로 줄여 씁니다.
@@ -323,12 +274,25 @@ class _ShelfRecordState extends State<_ShelfRecord> {
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: size,
-            child: Sleeve(track: t, api: widget.api, size: size, radius: 6),
+          Positioned.fill(
+            child: AnimatedContainer(
+              duration: still
+                  ? Duration.zero
+                  : const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(lifted ? 0x3816161A : 0x1416161A),
+                    blurRadius: lifted ? 26 : 8,
+                    spreadRadius: lifted ? -4 : -2,
+                    offset: Offset(0, lifted ? 16 : 4),
+                  ),
+                ],
+              ),
+              child: Sleeve(track: t, api: widget.api, size: size, radius: 6),
+            ),
           ),
         ],
       ),
@@ -336,57 +300,69 @@ class _ShelfRecordState extends State<_ShelfRecord> {
 
     return AnimatedBuilder(
       animation: widget.entrance,
-      builder: (_, child) => Opacity(
-        opacity: widget.entrance.value.clamp(0, 1),
-        child: Transform.translate(
-          offset: Offset(0, (1 - widget.entrance.value) * 22),
-          child: child,
-        ),
-      ),
+      // 아래에서 튀어 오르며 커지고, 살짝 비틀린 채 들어와 바로 섭니다.
+      builder: (_, child) {
+        final v = widget.entrance.value;
+        return Opacity(
+          opacity: v.clamp(0, 1),
+          child: Transform(
+            alignment: Alignment.bottomCenter,
+            transform: Matrix4.identity()
+              ..translateByDouble(0, (1 - v) * 56, 0, 1)
+              ..rotateZ((1 - v) * .12)
+              ..scaleByDouble(.7 + .3 * v, .7 + .3 * v, 1, 1),
+            child: child,
+          ),
+        );
+      },
       child: Semantics(
         button: true,
         label: widget.label,
         excludeSemantics: true,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (_) => _press(true),
-          onTapUp: (_) => _press(false),
-          onTapCancel: () => _press(false),
-          onTap: widget.onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnimatedScale(
-                scale: _down ? .96 : 1,
-                duration: quick,
-                curve: Curves.easeOut,
-                alignment: Alignment.bottomCenter,
-                child: record,
-              ),
-              SizedBox(height: ShelfPlank.height + 10),
-              Text(
-                t.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: Palette.ink,
-                  height: 1.3,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) => _press(true),
+            onTapUp: (_) => _press(false),
+            onTapCancel: () => _press(false),
+            onTap: widget.onTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedScale(
+                  scale: _down ? .9 : (_hover ? 1.05 : 1),
+                  duration: still
+                      ? Duration.zero
+                      : Duration(milliseconds: _down ? 90 : 520),
+                  curve: _down ? Curves.easeOut : Curves.elasticOut,
+                  child: AnimatedSlide(
+                    offset: Offset(0, _hover && !_down ? -.04 : 0),
+                    duration: still
+                        ? Duration.zero
+                        : const Duration(milliseconds: 320),
+                    curve: Curves.easeOutBack,
+                    child: record,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                t.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Palette.faint,
-                  height: 1.3,
+                const SizedBox(height: 10),
+                Text(
+                  t.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: Palette.ink,
+                    height: 1.3,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 5),
+                ArtistTag(t.artist),
+              ],
+            ),
           ),
         ),
       ),

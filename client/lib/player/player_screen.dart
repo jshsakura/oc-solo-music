@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../player_controller.dart';
+import '../widgets/artist_tag.dart';
 import '../theme.dart';
 import 'control_row.dart';
 import 'crate_row.dart';
@@ -169,12 +170,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                     track?.title ?? S.of(context).noTrack,
                                     style: titleStyle,
                                   ),
-                                  Text(
-                                    track?.artist ??
-                                        S.of(context).pickFromLibrary,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: artistStyle,
+                                  const SizedBox(height: 6),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: track == null
+                                        ? Text(
+                                            S.of(context).pickFromLibrary,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: artistStyle,
+                                          )
+                                        : ArtistTag(track.artist, large: true),
                                   ),
                                 ],
                               ),

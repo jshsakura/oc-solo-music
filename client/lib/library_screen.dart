@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'api.dart';
+import 'widgets/artist_tag.dart';
 import 'theme.dart';
 import 'widgets/motion.dart';
 import 'widgets/skeleton.dart';
@@ -103,38 +104,41 @@ class _LibraryScreenState extends State<LibraryScreen> {
             child: Row(
               children: [
                 for (final c in Crate.values)
-                  GestureDetector(
-                    onTap: () {
-                      if (c == _crate) return;
-                      HapticFeedback.selectionClick();
-                      setState(() {
-                        _crate = c;
-                        _shownAt = DateTime.now();
-                      });
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      height: 36,
-                      margin: const EdgeInsets.only(right: 18),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: c == _crate
-                                ? Palette.ink
-                                : Colors.transparent,
-                            width: 2,
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: () {
+                        if (c == _crate) return;
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _crate = c;
+                          _shownAt = DateTime.now();
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        height: 36,
+                        margin: const EdgeInsets.only(right: 18),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(
+                              color: c == _crate
+                                  ? Palette.ink
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
                           ),
                         ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _crateName(S.of(context), c),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: c == _crate
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: c == _crate ? Palette.ink : Palette.faint,
+                        alignment: Alignment.center,
+                        child: Text(
+                          _crateName(S.of(context), c),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: c == _crate
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: c == _crate ? Palette.ink : Palette.faint,
+                          ),
                         ),
                       ),
                     ),
@@ -252,14 +256,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             ),
                           ],
                         ),
-                        Text(
-                          '${t.artist} · ${formatTime(t.duration)}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Palette.faint,
-                          ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Flexible(child: ArtistTag(t.artist)),
+                            const SizedBox(width: 8),
+                            Text(
+                              formatTime(t.duration),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Palette.faint,
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

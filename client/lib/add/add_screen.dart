@@ -275,25 +275,28 @@ class _InputRow extends StatelessWidget {
       Semantics(
         button: true,
         label: S.of(context).submit,
-        child: GestureDetector(
-          onTap: onSubmit,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Palette.butter,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onSubmit,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Palette.butter,
+              ),
+              alignment: Alignment.center,
+              child: busy
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: Palette.ink,
+                      ),
+                    )
+                  : const Icon(Icons.add_rounded, size: 26, color: Palette.ink),
             ),
-            alignment: Alignment.center,
-            child: busy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: Palette.ink,
-                    ),
-                  )
-                : const Icon(Icons.add_rounded, size: 26, color: Palette.ink),
           ),
         ),
       ),
@@ -511,14 +514,17 @@ class _JobRow extends StatelessWidget {
             Semantics(
               button: true,
               label: s.removeFromQueue,
-              child: GestureDetector(
-                onTap: onCancel,
-                child: const SizedBox.square(
-                  dimension: 40,
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 20,
-                    color: Palette.secondary,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onTap: onCancel,
+                  child: const SizedBox.square(
+                    dimension: 40,
+                    child: Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: Palette.secondary,
+                    ),
                   ),
                 ),
               ),
