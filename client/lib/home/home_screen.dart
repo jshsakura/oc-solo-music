@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api.dart';
 import '../l10n.dart';
+import '../widgets/scroll_header.dart';
 import '../theme.dart';
 import '../widgets/skeleton.dart';
 import 'crate_math.dart';
@@ -218,114 +219,123 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (_wide)
-                  Text(
-                    s.tabHome,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: Palette.ink,
-                      letterSpacing: -.4,
-                    ),
-                  )
-                else
-                  Text.rich(
-                    TextSpan(
-                      text: 'solo',
+          Expanded(
+            child: HeaderedBody(
+              header: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        TextSpan(
-                          text: '.',
-                          style: letterStyle(
-                            30,
-                          ).copyWith(color: Palette.butter),
+                        if (_wide)
+                          Text(
+                            s.tabHome,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              color: Palette.ink,
+                              letterSpacing: -.4,
+                            ),
+                          )
+                        else
+                          Text.rich(
+                            TextSpan(
+                              text: 'solo',
+                              children: [
+                                TextSpan(
+                                  text: '.',
+                                  style: letterStyle(
+                                    30,
+                                  ).copyWith(color: Palette.butter),
+                                ),
+                              ],
+                            ),
+                            style: letterStyle(30),
+                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_waiting)
+                              const Skeleton(
+                                label: false,
+                                child: TextBone(
+                                  style: TextStyle(fontSize: 12),
+                                  width: 34,
+                                ),
+                              )
+                            else
+                              AnimatedBuilder(
+                                animation: _pos,
+                                builder: (_, _) => Text(
+                                  shown.isEmpty
+                                      ? '0'
+                                      : _shownView == HomeView.shelf || _jukebox
+                                      ? '${shown.length}'
+                                      : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Palette.faint,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ...[
+                              const SizedBox(width: 10),
+                              _ViewToggle(
+                                view: _view,
+                                label: _shownView == HomeView.crate
+                                    ? s.homeViewShelf
+                                    : s.homeViewCrate,
+                                onTap: _toggleView,
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
-                    style: letterStyle(30),
                   ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_waiting)
-                      const Skeleton(
-                        label: false,
-                        child: TextBone(
-                          style: TextStyle(fontSize: 12),
-                          width: 34,
-                        ),
-                      )
-                    else
-                      AnimatedBuilder(
-                        animation: _pos,
-                        builder: (_, _) => Text(
-                          shown.isEmpty
-                              ? '0'
-                              : _shownView == HomeView.shelf || _jukebox
-                              ? '${shown.length}'
-                              : '${frontIndex(_pos.value, shown.length) + 1} / ${shown.length}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Palette.faint,
-                            fontFeatures: [FontFeature.tabularFigures()],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        for (final c in HomeCrate.values)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: _Chip(
+                              label: _crateName(s, c),
+                              on: c == _crate,
+                              onTap: () => _pick(c),
+                            ),
                           ),
-                        ),
-                      ),
-                    ...[
-                      const SizedBox(width: 10),
-                      _ViewToggle(
-                        view: _view,
-                        label: _shownView == HomeView.crate
-                            ? s.homeViewShelf
-                            : s.homeViewCrate,
-                        onTap: _toggleView,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                for (final c in HomeCrate.values)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _Chip(
-                      label: _crateName(s, c),
-                      on: c == _crate,
-                      onTap: () => _pick(c),
+                      ],
                     ),
                   ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: _still || !_userSwitched
-                  ? Duration.zero
-                  : const Duration(milliseconds: 320),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, a) => FadeTransition(
-                opacity: a,
-                child: ScaleTransition(
-                  scale: Tween(begin: .96, end: 1.0).animate(a),
-                  alignment: Alignment.topCenter,
-                  child: child,
-                ),
+                  const SizedBox(height: 8),
+                ],
               ),
-              child: KeyedSubtree(
-                key: ValueKey(_shownView),
-                child: _stage(s, shown),
+              body: AnimatedSwitcher(
+                duration: _still || !_userSwitched
+                    ? Duration.zero
+                    : const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, a) => FadeTransition(
+                  opacity: a,
+                  child: ScaleTransition(
+                    scale: Tween(begin: .96, end: 1.0).animate(a),
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
+                ),
+                child: KeyedSubtree(
+                  key: ValueKey(_shownView),
+                  child: _stage(s, shown),
+                ),
               ),
             ),
           ),
