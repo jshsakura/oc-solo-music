@@ -24,6 +24,7 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   final _turntable = GlobalKey<TurntableState>();
+  final _stage = GlobalKey();
   String? _hint;
 
   void _setHint(String text) {
@@ -59,6 +60,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ? Palette.ground
             : Palette.sleeveOf(track.id);
         return TweenAnimationBuilder<Color?>(
+          key: _stage,
           tween: ColorTween(end: tint),
           duration: reducedMotion(context)
               ? Duration.zero
@@ -154,6 +156,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                     key: _turntable,
                                     ctl: c,
                                     onHint: _setHint,
+                                    stage: _stage,
                                   ),
                                 ),
                               ),

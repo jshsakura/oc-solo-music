@@ -20,10 +20,18 @@ import 'turntable_motion.dart';
 /// 움직임은 티커 하나가 [_frame] 을 두드려 그 값을 보는 조각만 다시 그립니다. 화면 전체를 매 프레임
 /// 다시 짓지 않고, 모두 멈추면 티커도 쉽니다.
 class Turntable extends StatefulWidget {
-  const Turntable({super.key, required this.ctl, required this.onHint});
+  const Turntable({
+    super.key,
+    required this.ctl,
+    required this.onHint,
+    this.stage,
+  });
 
   final PlayerController ctl;
   final ValueChanged<String> onHint;
+
+  /// 판을 갈 때 판이 날아다닐 무대입니다. 넓은 화면에서는 오른쪽 재생 칸, 폰에서는 화면 전체가 됩니다.
+  final GlobalKey? stage;
 
   static const size = Size(350, 342);
 
@@ -70,6 +78,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   /// 판을 갈아 끼우는 동안 데크 밖(화면 전체)을 날아다니는 판입니다. 그동안 데크 위의 판은 숨깁니다.
   final _discKey = GlobalKey();
   OverlayEntry? _flying;
+  Rect _stage = Rect.zero;
   bool _discHidden = false;
 
   PlayerController get _c => widget.ctl;
@@ -221,10 +230,15 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     }
     _swapping = true;
     final home = box.localToGlobal(Offset.zero) & box.size;
-    final screen = MediaQuery.sizeOf(context).width;
-    // 다음 곡이면 지금 판이 왼쪽으로, 이전 곡이면 오른쪽으로 나갑니다.
-    final outX = dir > 0 ? -home.width - 40 : screen + 40;
-    final inX = dir > 0 ? screen + 40 : -home.width - 40;
+    final stageBox =
+        widget.stage?.currentContext?.findRenderObject() as RenderBox?;
+    final stage = stageBox != null && stageBox.attached
+        ? stageBox.localToGlobal(Offset.zero) & stageBox.size
+        : Offset.zero & MediaQuery.sizeOf(context);
+    // 다음 곡이면 지금 판이 왼쪽으로, 이전 곡이면 오른쪽으로 무대 밖까지 나갑니다.
+    final outX = dir > 0 ? stage.left - home.width - 40 : stage.right + 40;
+    final inX = dir > 0 ? stage.right + 40 : stage.left - home.width - 40;
+    _stage = stage;
     final wasPlaying = _c.playing;
     var skipped = false;
     try {
@@ -267,53 +281,68 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     final track = _c.current;
     _swap.duration = Duration(milliseconds: leaving ? 460 : 620);
     _flying?.remove();
+    final stage = _stage;
     _flying = OverlayEntry(
-      builder: (context) => AnimatedBuilder(
-        animation: _swap,
-        builder: (context, child) {
-          final t = _swap.value;
-          final e = leaving
-              ? Curves.easeInCubic.transform(t)
-              : Curves.easeOutCubic.transform(t);
-          // 나갈 때는 0→1, 들어올 때는 1→0 으로 제자리에서 멀어진 정도입니다.
-          final away = leaving ? e : 1 - e;
-          final x = lerpDouble(home.left, toX, away)!;
-          // 손으로 들어 올린 판처럼 가운데서 위로 둥글게 떴다가 내려옵니다.
-          final y = home.top - 70 * sin(pi * away.clamp(0.0, 1.0));
-          final lift = leaving
-              ? Curves.easeOut.transform((t * 3).clamp(0.0, 1.0))
-              : 1 - Curves.easeIn.transform(((t - 0.7) / 0.3).clamp(0.0, 1.0));
-          final scale = 1 + 0.07 * lift;
-          final spin = -dir * 160 * away * pi / 180;
-          return Positioned(
-            left: x,
-            top: y,
-            width: home.width,
-            height: home.height,
-            child: IgnorePointer(
-              child: Transform.rotate(
-                angle: spin,
-                child: Transform.scale(
-                  scale: scale,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0x3316161A),
-                          blurRadius: 10 + 26 * lift,
-                          offset: Offset(0, 4 + 18 * lift),
+      // 무대 밖은 잘라서, 넓은 화면에서도 판이 재생 칸을 벗어나 다른 화면 위로 지나가지 않습니다.
+      builder: (context) => Positioned.fromRect(
+        rect: stage,
+        child: ClipRect(
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              AnimatedBuilder(
+                animation: _swap,
+                builder: (context, child) {
+                  final t = _swap.value;
+                  final e = leaving
+                      ? Curves.easeInCubic.transform(t)
+                      : Curves.easeOutCubic.transform(t);
+                  // 나갈 때는 0→1, 들어올 때는 1→0 으로 제자리에서 멀어진 정도입니다.
+                  final away = leaving ? e : 1 - e;
+                  final x = lerpDouble(home.left, toX, away)!;
+                  // 손으로 들어 올린 판처럼 가운데서 위로 둥글게 떴다가 내려옵니다.
+                  final y = home.top - 70 * sin(pi * away.clamp(0.0, 1.0));
+                  final lift = leaving
+                      ? Curves.easeOut.transform((t * 3).clamp(0.0, 1.0))
+                      : 1 -
+                            Curves.easeIn.transform(
+                              ((t - 0.7) / 0.3).clamp(0.0, 1.0),
+                            );
+                  final scale = 1 + 0.07 * lift;
+                  final spin = -dir * 160 * away * pi / 180;
+                  return Positioned(
+                    left: x - stage.left,
+                    top: y - stage.top,
+                    width: home.width,
+                    height: home.height,
+                    child: IgnorePointer(
+                      child: Transform.rotate(
+                        angle: spin,
+                        child: Transform.scale(
+                          scale: scale,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0x3316161A),
+                                  blurRadius: 10 + 26 * lift,
+                                  offset: Offset(0, 4 + 18 * lift),
+                                ),
+                              ],
+                            ),
+                            child: child,
+                          ),
                         ),
-                      ],
+                      ),
                     ),
-                    child: child,
-                  ),
-                ),
+                  );
+                },
+                child: _Disc(motion: this, track: track, api: _c.api),
               ),
-            ),
-          );
-        },
-        child: _Disc(motion: this, track: track, api: _c.api),
+            ],
+          ),
+        ),
       ),
     );
     overlay.insert(_flying!);
@@ -763,9 +792,11 @@ class _ArmPainter extends CustomPainter {
   // 긴 봉은 거의 곧게 내려오다가 끝에서 40도쯤 꺾여 헤드로 이어집니다.
   static const _knee = Offset(62, 170);
   static const _bend = 0.71; // 꺾인 마디의 기울기(라디안)입니다. 헤드도 이 각도로 붙습니다.
+  // 꺾이는 마디는 모서리 대신 둥글게 휘어 실제 톤암처럼 보이게 합니다.
   static final _rod = Path()
     ..moveTo(30, 0)
-    ..lineTo(_knee.dx, _knee.dy)
+    ..lineTo(59.0, 154.0)
+    ..quadraticBezierTo(_knee.dx, _knee.dy, 52.2, 181.3)
     ..lineTo(30 + 18 * 0.652, 207 - 18 * 0.758);
   static final _head = RRect.fromRectAndRadius(
     Rect.fromCenter(center: const Offset(30, 196), width: 15, height: 24),
@@ -804,6 +835,15 @@ class _ArmPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1
           ..color = const Color(0xFFCFCDC6),
+      )
+      // 헤드 옆으로 튀어나온 손잡이(핑거 리프트)입니다.
+      ..drawLine(
+        Offset(_head.left, _head.top + 7),
+        Offset(_head.left - 7, _head.top + 4),
+        Paint()
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round
+          ..color = const Color(0xFFD9D8D3),
       )
       ..restore()
       ..drawCircle(_tip, 2, Paint()..color = Palette.butter);
