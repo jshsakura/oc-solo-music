@@ -845,8 +845,7 @@ class _ArmPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..color = const Color(0xFFD9D8D3),
       )
-      ..restore()
-      ..drawCircle(_tip, 2, Paint()..color = Palette.butter);
+      ..restore();
   }
 
   @override
