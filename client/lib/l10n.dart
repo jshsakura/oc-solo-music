@@ -95,6 +95,9 @@ abstract class S {
   String queued(int n);
   String get alreadyHave;
   String pastedFromClipboard(int n);
+  String pitchHint(String pct);
+  String get pitchLabel;
+  String get powerLabel;
   String get jobDone;
   String get jobFailed;
   String get jobStopped;
@@ -309,6 +312,12 @@ class _Ko extends S {
   String get alreadyHave => '이미 받았거나 대기 중인 곡입니다';
   @override
   String pastedFromClipboard(int n) => '복사해 둔 수노 주소 $n개를 넣었습니다. 추가를 누르면 녹음합니다';
+  @override
+  String pitchHint(String pct) => '빠르기 $pct';
+  @override
+  String get pitchLabel => '피치. 위아래로 끌어 빠르기를 바꾸고, 두 번 누르면 원래대로 돌아갑니다';
+  @override
+  String get powerLabel => '시작과 정지';
   @override
   @override
   @override
@@ -615,6 +624,13 @@ class _En extends S {
   String pastedFromClipboard(int n) =>
       'Pasted $n Suno link${n == 1 ? '' : 's'} from your clipboard. Tap add to record';
   @override
+  String pitchHint(String pct) => 'Pitch $pct';
+  @override
+  String get pitchLabel =>
+      'Pitch. Drag up or down to change the speed, double tap to reset';
+  @override
+  String get powerLabel => 'Start and stop';
+  @override
   @override
   @override
   @override
@@ -918,6 +934,12 @@ class _Ja extends S {
   String get alreadyHave => '保存済みか、すでにキューにある曲です';
   @override
   String pastedFromClipboard(int n) => 'コピーしたSunoのリンクを$n件入れました。追加を押すと録音します';
+  @override
+  String pitchHint(String pct) => 'ピッチ $pct';
+  @override
+  String get pitchLabel => 'ピッチ。上下にドラッグして速さを変え、ダブルタップで元に戻します';
+  @override
+  String get powerLabel => 'スタートとストップ';
   @override
   @override
   @override
