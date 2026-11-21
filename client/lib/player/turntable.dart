@@ -70,6 +70,9 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   String? _trackId;
   bool _wasPlaying = false;
 
+  /// 데크 위에 놓인 판의 곡입니다. 곡이 바뀌면 옛 판을 치우고 새 판을 올린 뒤에야 바뀝니다.
+  Track? _shown;
+
   bool _swapping = false;
 
   /// 판을 갈아 끼우는 동안 바늘을 받침으로 치워 둡니다.
@@ -89,6 +92,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     // 화면에 다시 들어왔을 때 이미 재생 중이면 바늘과 판이 제자리에 있는 채로 시작합니다.
     _wasPlaying = _c.playing;
     _trackId = _c.current?.id;
+    _shown = _c.current;
     _arm = armAngleFor(playing: _wasPlaying, progress: _c.progress);
     _down = _wasPlaying;
     _speed = _wasPlaying ? normalSpeed : 0;
@@ -118,8 +122,17 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   void _onCtl() {
     final id = _c.current?.id;
     if (id != _trackId) {
-      if (_trackId != null && id != null) HapticFeedback.heavyImpact();
+      final hadDisc = _trackId != null;
       _trackId = id;
+      // 버튼으로 넘길 때는 swap 이 판을 바꿉니다. 곡이 끝났거나 목록에서 고른 것처럼 다른 데서
+      // 곡이 바뀌어도 판을 그냥 갈아 끼우지 않고 똑같이 치웠다가 새로 올립니다.
+      if (!_swapping) {
+        if (hadDisc && id != null) {
+          unawaited(_exchange(1));
+        } else {
+          setState(() => _shown = _c.current);
+        }
+      }
     }
     final playing = _c.playing;
     if (_wasPlaying && !playing) HapticFeedback.lightImpact();
@@ -222,10 +235,17 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   /// 새 판이 반대쪽 화면 끝에서 날아와 플래터에 툭 내려앉습니다.
   Future<void> swap(int dir) async {
     if (_swapping || _c.queue.isEmpty) return;
+    await _exchange(dir, skip: true);
+  }
+
+  /// 판을 치우고 새 판을 올립니다. skip 이면 그 사이에 곡을 넘기고, 아니면 이미 바뀐 곡의 판을 올립니다.
+  Future<void> _exchange(int dir, {bool skip = false}) async {
+    if (_swapping) return;
     final box = _discKey.currentContext?.findRenderObject() as RenderBox?;
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (_reduce || box == null || overlay == null || !box.attached) {
-      await _c.skip(dir);
+      if (skip) await _c.skip(dir);
+      if (mounted) setState(() => _shown = _c.current);
       return;
     }
     _swapping = true;
@@ -240,7 +260,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     final inX = dir > 0 ? stage.right + 40 : stage.left - home.width - 40;
     _stage = stage;
     final wasPlaying = _c.playing;
-    var skipped = false;
+    var skipped = !skip;
     try {
       // 바늘을 먼저 들어 받침으로 치우고, 판을 바꾼 뒤 다시 올립니다.
       _c.pause();
@@ -249,11 +269,17 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       HapticFeedback.lightImpact();
       await Future<void>.delayed(const Duration(milliseconds: 380));
       if (!mounted) return;
-      await _fly(overlay, home, toX: outX, leaving: true, dir: dir);
-      skipped = true;
-      await _c.skip(dir, play: false);
+      await _fly(overlay, home, _shown, toX: outX, leaving: true, dir: dir);
+      if (!skipped) {
+        skipped = true;
+        await _c.skip(dir, play: false);
+      }
       if (!mounted) return;
-      await _fly(overlay, home, toX: inX, leaving: false, dir: dir);
+      _shown = _c.current;
+      // 판이 빠진 빈 플래터를 잠깐 보여 준 뒤 새 판을 올립니다.
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      if (!mounted) return;
+      await _fly(overlay, home, _shown, toX: inX, leaving: false, dir: dir);
     } finally {
       // 애니메이션이 어떻게 끝나든 곡은 반드시 넘기고 판과 바늘을 제자리로 돌립니다.
       _flying?.remove();
@@ -261,8 +287,12 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       if (!skipped) unawaited(_c.skip(dir, play: false));
       _swapping = false;
       _armAway = false;
+      _trackId = _c.current?.id;
       if (mounted) {
-        setState(() => _discHidden = false);
+        setState(() {
+          _discHidden = false;
+          _shown = _c.current;
+        });
         _rumbleT = 0;
         _wake();
       }
@@ -273,12 +303,12 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   /// 판 하나를 화면 위로 날립니다. leaving 이면 제자리에서 toX 로, 아니면 toX 에서 제자리로 옵니다.
   Future<void> _fly(
     OverlayState overlay,
-    Rect home, {
+    Rect home,
+    Track? track, {
     required double toX,
     required bool leaving,
     required int dir,
   }) async {
-    final track = _c.current;
     _swap.duration = Duration(milliseconds: leaving ? 520 : 760);
     _flying?.remove();
     final stage = _stage;
@@ -465,7 +495,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       _reduce = reduce;
       _wake();
     }
-    final track = _c.current;
+    final track = _shown;
     final deck = Container(
       width: Turntable.size.width,
       height: Turntable.size.height,
@@ -490,6 +520,15 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
         children: [
           // 오른쪽 아래의 전원 불빛과 회전수 표시입니다. 돌 때 불빛이 켜집니다.
           Positioned(right: 22, bottom: 18, child: _PowerLamp(on: _c.playing)),
+          // 판 밑의 플래터와 가운데 축입니다. 판보다 조금 작아서 판이 있을 땐 가려지고,
+          // 판을 갈아 끼우는 동안에만 드러납니다.
+          const Positioned(
+            left: _discLeft + 6,
+            top: _discTop + 6,
+            width: _disc - 12,
+            height: _disc - 12,
+            child: CustomPaint(painter: _Platter()),
+          ),
           Positioned(
             left: _discLeft,
             top: _discTop,
@@ -1109,4 +1148,53 @@ class _DropGuide extends CustomPainter {
       old.nowLabel != nowLabel ||
       old.startLabel != startLabel ||
       old.endLabel != endLabel;
+}
+
+/// 판을 치웠을 때 보이는 플래터입니다. 고무 매트의 동심원 결과 금속 테, 가운데 축을 그립니다.
+class _Platter extends CustomPainter {
+  const _Platter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2;
+    final rect = Rect.fromCircle(center: c, radius: r);
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF8C8F96), Color(0xFF4E5056), Color(0xFF7D8087)],
+        ).createShader(rect),
+    );
+    canvas.drawCircle(c, r - 4, Paint()..color = const Color(0xFF1C1C20));
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0x14FFFFFF);
+    for (var k = r - 14; k > 30; k -= 9) {
+      canvas.drawCircle(c, k, ring);
+    }
+    // 축 받침과 금속 핀입니다.
+    canvas.drawCircle(c, 22, Paint()..color = const Color(0xFF2A2A30));
+    canvas.drawCircle(
+      c + const Offset(0, 2),
+      7,
+      Paint()..color = const Color(0x66000000),
+    );
+    canvas.drawCircle(
+      c,
+      6.5,
+      Paint()
+        ..shader = const RadialGradient(
+          center: Alignment(-.35, -.4),
+          colors: [Color(0xFFF4F5F7), Color(0xFF9EA1A8)],
+        ).createShader(Rect.fromCircle(center: c, radius: 6.5)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Platter oldDelegate) => false;
 }
