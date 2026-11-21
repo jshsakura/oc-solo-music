@@ -760,11 +760,13 @@ class _ArmPainter extends CustomPainter {
   final double lift;
 
   static const _tip = Offset(30, 207);
-  static const _knee = Offset(36, 138);
+  // 긴 봉은 거의 곧게 내려오다가 끝에서 40도쯤 꺾여 헤드로 이어집니다.
+  static const _knee = Offset(62, 170);
+  static const _bend = 0.71; // 꺾인 마디의 기울기(라디안)입니다. 헤드도 이 각도로 붙습니다.
   static final _rod = Path()
     ..moveTo(30, 0)
     ..lineTo(_knee.dx, _knee.dy)
-    ..lineTo(30, 186);
+    ..lineTo(30 + 18 * 0.652, 207 - 18 * 0.758);
   static final _head = RRect.fromRectAndRadius(
     Rect.fromCenter(center: const Offset(30, 196), width: 15, height: 24),
     const Radius.circular(4),
@@ -792,7 +794,7 @@ class _ArmPainter extends CustomPainter {
     canvas
       ..save()
       ..translate(c.dx, c.dy)
-      ..rotate(-0.38)
+      ..rotate(_bend)
       ..scale(scale)
       ..translate(-c.dx, -c.dy)
       ..drawRRect(_head, Paint()..color = const Color(0xFFF4F3EF))
