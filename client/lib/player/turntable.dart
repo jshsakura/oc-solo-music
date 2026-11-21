@@ -11,6 +11,7 @@ import '../api.dart';
 import '../player_controller.dart';
 import '../theme.dart';
 import '../l10n.dart';
+import '../widgets/skeleton.dart';
 import 'turntable_motion.dart';
 
 /// 턴테이블 한 판입니다. 판을 돌리면 앞뒤로 옮기고, 튕기면 빨리 돌고, 톡 치면 재생과 멈춤이 바뀝니다.
@@ -567,11 +568,13 @@ class _Disc extends StatelessWidget {
           child: t == null
               ? const ColoredBox(color: Palette.butter)
               : t.hasCover
-              ? Image.network(
-                  api.coverUri(t.id).toString(),
+              ? CoverImage(
+                  url: api.coverUri(t.id).toString(),
                   headers: api.headers,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => _Letter(t),
+                  fallback: _Letter(t),
+                  // 도는 판 위라 빛줄기 대신 슬리브 색을 깔아 두고 표지가 그 위로 떠오릅니다.
+                  placeholder: ColoredBox(color: Palette.sleeveOf(t.id)),
+                  shimmer: false,
                 )
               : _Letter(t),
         ),

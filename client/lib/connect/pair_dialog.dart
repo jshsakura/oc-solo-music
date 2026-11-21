@@ -8,6 +8,7 @@ import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
 import '../widgets/motion.dart';
+import '../widgets/skeleton.dart';
 
 /// 짝짓기 QR 을 띄웁니다. 새 기기가 생기면 알아서 닫히고 true 를 돌려줍니다.
 Future<bool> showPairDialog(BuildContext context, Api api) async =>
@@ -157,9 +158,12 @@ class _PairDialogState extends State<_PairDialog> {
                           ),
                         )
                       : offer == null
-                      ? const Center(
+                      ? const Skeleton(
                           key: ValueKey('wait'),
-                          child: CircularProgressIndicator(color: Palette.ink),
+                          child: Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Bone(radius: 14),
+                          ),
                         )
                       : PulseRings(
                           key: ValueKey(offer.uri),

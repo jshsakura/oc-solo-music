@@ -7,10 +7,10 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f2f1ee">
-  <meta name="description" content="Record your Suno songs, save YouTube tracks as mp3, and spin them on a turntable.">
+  <meta name="description" content="Record your own Suno songs, upload your own song files, and spin them on a turntable.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Solo">
-  <meta property="og:description" content="Your own record shelf. Record your Suno songs, save YouTube tracks as mp3, and spin them on a turntable.">
+  <meta property="og:description" content="Your own record shelf. Record your own Suno songs, upload your own song files, and spin them on a turntable.">
   <meta property="og:image" content="__SOLO_ORIGIN__/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -28,8 +28,86 @@
 
   <title>Solo</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Flutter 가 첫 화면을 그리기 전까지 보이는 자리 표시입니다. 앱이 처음 여는 화면(폰은 재생,
+       넓은 화면은 보관함과 오른쪽 재생 칸)과 같은 모양이라 불러오기가 두 번 이어지는 느낌이 없습니다. */
+    html, body { margin: 0; background: #f2f1ee; }
+    #splash {
+      position: fixed; inset: 0; z-index: 9999; background: #f2f1ee;
+      display: flex; flex-direction: column;
+      transition: opacity .32s ease, visibility .32s ease;
+    }
+    #splash.gone { opacity: 0; visibility: hidden; }
+    #splash .player { flex: 1; padding: 14px 20px 0; box-sizing: border-box; display: flex; flex-direction: column; }
+    #splash .head { height: 12px; width: 64px; border-radius: 6px; margin-bottom: 14px; }
+    #splash .deck { width: 100%; max-width: 350px; aspect-ratio: 350 / 342; border-radius: 22px; align-self: center; }
+    #splash .sk.deck { background: linear-gradient(135deg, #2E2E34, #26262B); animation: none; }
+    #splash .t1 { height: 18px; width: 60%; border-radius: 8px; margin-top: 22px; }
+    #splash .t2 { height: 12px; width: 32%; border-radius: 6px; margin-top: 10px; }
+    #splash .line { height: 4px; width: 100%; border-radius: 4px; margin-top: 26px; }
+    #splash .grow { flex: 1; }
+    #splash .ctl { height: 56px; border-radius: 100px; margin-bottom: 14px; }
+    #splash .bar { height: 64px; border-top: 1px solid #E2E0DA; background: #fff; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
+    #splash .bar i { width: 24px; height: 24px; border-radius: 7px; }
+    #splash .side, #splash .list { display: none; }
+    #splash .mark {
+      font: 800 26px/1 ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif;
+      color: #16161A; letter-spacing: -.5px; padding: 0 14px;
+    }
+    #splash .mark b { color: #FFC23D; font-weight: 800; }
+    #splash .row { display: flex; gap: 14px; align-items: center; margin-top: 18px; }
+    #splash .row i { width: 56px; height: 56px; border-radius: 8px; }
+    #splash .row div { flex: 1; }
+    #splash .row s { display: block; height: 13px; width: 55%; border-radius: 6px; }
+    #splash .row u { display: block; height: 10px; width: 30%; border-radius: 5px; margin-top: 8px; }
+    #splash .sk, #splash .bar i, #splash .row i, #splash .row s, #splash .row u {
+      text-decoration: none;
+      background: linear-gradient(100deg, #EBE9E4 30%, #F5F4F1 50%, #EBE9E4 70%) 0 0 / 300% 100%;
+      animation: solo-shine 1.4s ease-in-out infinite;
+    }
+    @keyframes solo-shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+    @media (min-width: 900px) {
+      #splash { flex-direction: row; }
+      #splash .bar { display: none; }
+      #splash .side { display: block; width: 223px; border-right: 1px solid #E2E0DA; background: #fff; padding: 34px 12px; box-sizing: border-box; }
+      #splash .list { display: block; flex: 1; padding: 24px 24px; }
+      #splash .list .title { height: 28px; width: 90px; border-radius: 8px; margin-bottom: 26px; }
+      #splash .player { flex: 0 0 420px; border-left: 1px solid #E2E0DA; padding: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #splash { transition: none; }
+      #splash .sk, #splash .bar i, #splash .row i, #splash .row s, #splash .row u { animation: none; }
+    }
+  </style>
 </head>
 <body style="background:#f2f1ee">
+  <div id="splash" role="status" aria-label="Solo">
+    <div class="side"><div class="mark">solo<b>.</b></div></div>
+    <div class="list"><div class="sk title"></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div></div>
+    <div class="player">
+      <div class="sk head"></div>
+      <div class="sk deck"></div>
+      <div class="sk t1"></div>
+      <div class="sk t2"></div>
+      <div class="sk line"></div>
+      <div class="grow"></div>
+      <div class="sk ctl"></div>
+    </div>
+    <div class="bar"><i></i><i></i><i></i><i></i><i></i></div>
+  </div>
+  <script>
+    // 앱이 첫 화면과 글꼴을 다 그리면 soloReady 를 불러 시작 화면을 천천히 걷어 냅니다.
+    // 앱이 부르지 못해도 첫 화면 뒤 5초가 지나면 걷습니다.
+    window.soloReady = function () {
+      var el = document.getElementById('splash');
+      if (!el || el.classList.contains('gone')) return;
+      el.classList.add('gone');
+      setTimeout(function () { el.remove(); }, 400);
+    };
+    window.addEventListener('flutter-first-frame', function () {
+      setTimeout(window.soloReady, 5000);
+    }, { once: true });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

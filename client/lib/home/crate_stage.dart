@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../theme.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/sleeve.dart';
 import 'crate_math.dart';
 import 'crate_parts.dart';
@@ -17,6 +18,9 @@ const _top = stageHeight - 40 - _size;
 const _discSize = 240.0;
 const _discRise = 150.0;
 const _perspective = 900.0;
+
+/// 불러오는 동안 상자에 세워 둘 빈 판의 수입니다.
+const _skeletonCount = 4;
 
 /// 이 커브들은 시안의 CSS 전이를 그대로 옮긴 것입니다. 끝에서 살짝 튕깁니다.
 const discCurve = Cubic(.3, 1.3, .5, 1);
@@ -36,6 +40,7 @@ class CrateStage extends StatelessWidget {
     required this.loadSemantics,
     required this.onLoad,
     this.message,
+    this.skeleton = false,
   });
 
   final Api api;
@@ -53,9 +58,12 @@ class CrateStage extends StatelessWidget {
   /// 상자가 비었을 때 판 대신 보여줄 문장입니다.
   final String? message;
 
+  /// 곡 목록을 받는 동안입니다. 판 대신 같은 자리에 빈 판을 세우고 안내 문장은 막대로 둡니다.
+  final bool skeleton;
+
   @override
   Widget build(BuildContext context) {
-    final n = tracks.length;
+    final n = skeleton ? _skeletonCount : tracks.length;
     final pos = n == 0 ? 0.0 : position.clamp(-0.3, n - 0.7);
     final front = frontIndex(pos, n);
     final from = math.max(0, (pos - 1.6).floor());
@@ -101,7 +109,20 @@ class CrateStage extends StatelessWidget {
             height: 84,
             child: CrateBox(),
           ),
-          if (message == null)
+          if (skeleton)
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 22,
+              child: Center(
+                child: TextBone(
+                  style: TextStyle(fontSize: 12),
+                  width: 150,
+                  color: Palette.line,
+                ),
+              ),
+            )
+          else if (message == null)
             Positioned(
               left: 0,
               right: 0,
@@ -206,7 +227,9 @@ class CrateStage extends StatelessWidget {
   Widget _placed(int i, SleevePose pose, double pulled) {
     final body = Transform(
       transform: _matrix(pose),
-      child: _SleeveBody(track: tracks[i], api: api, pulled: pulled),
+      child: skeleton
+          ? const _SleeveBone()
+          : _SleeveBody(track: tracks[i], api: api, pulled: pulled),
     );
     return Positioned(
       left: _left,
@@ -315,4 +338,39 @@ class _SleeveBody extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 곡 목록을 받는 동안 상자에 세워 두는 빈 판입니다. 제목과 이름 자리에 막대를 둡니다.
+/// 빛줄기는 상자 전체를 감싼 [Skeleton] 이 한 번에 지나가게 합니다.
+class _SleeveBone extends StatelessWidget {
+  const _SleeveBone();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: _size,
+    height: _size,
+    decoration: BoxDecoration(
+      color: Palette.sunk,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Palette.line),
+    ),
+    padding: const EdgeInsets.fromLTRB(18, 0, 18, 54),
+    alignment: Alignment.bottomLeft,
+    child: const Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextBone(
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          width: 150,
+          color: Palette.line,
+        ),
+        TextBone(
+          style: TextStyle(fontSize: 12),
+          width: 90,
+          color: Palette.line,
+        ),
+      ],
+    ),
+  );
 }

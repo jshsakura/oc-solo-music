@@ -41,6 +41,10 @@ abstract class S {
   String get crateUploaded;
   String libraryCount(int records, int likes);
   String get reload;
+
+  // 로딩
+  String get loading;
+
   String get emptyCrate;
 
   // 재생
@@ -207,6 +211,10 @@ class _Ko extends S {
   String libraryCount(int records, int likes) => '음악 $records곡 · 좋아요 $likes';
   @override
   String get reload => '다시 불러옵니다';
+
+  // 로딩
+  @override
+  String get loading => '불러오는 중입니다';
   @override
   String get emptyCrate => '이 분류에는 음악이 없습니다';
   @override
@@ -498,6 +506,10 @@ class _En extends S {
       '$records ${records == 1 ? 'record' : 'records'} · $likes liked';
   @override
   String get reload => 'Try again';
+
+  // 로딩
+  @override
+  String get loading => 'Loading';
   @override
   String get emptyCrate => 'No records here yet';
   @override
@@ -798,6 +810,10 @@ class _Ja extends S {
   String libraryCount(int records, int likes) => 'レコード $records枚 · いいね $likes';
   @override
   String get reload => 'もう一度読み込む';
+
+  // 로딩
+  @override
+  String get loading => '読み込んでいます';
   @override
   String get emptyCrate => 'ここにはまだレコードがありません';
   @override

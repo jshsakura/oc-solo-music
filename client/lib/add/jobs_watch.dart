@@ -22,6 +22,9 @@ class JobsWatch extends ChangeNotifier {
   final Set<String> _seenDone = {};
   bool _primed = false;
 
+  /// 처음 한 번 물어본 답이 왔는지입니다. 실패해도 답이 온 것으로 봅니다.
+  bool loaded = false;
+
   bool get busy => jobs.any((j) => j.isActive);
   Job? get running => jobs.where((j) => j.isRunning).firstOrNull;
   int get waiting => jobs.where((j) => j.status == 'queued').length;
@@ -46,6 +49,7 @@ class JobsWatch extends ChangeNotifier {
     } on Exception catch (e) {
       error = e;
     }
+    loaded = true;
     if (_disposed) return;
     notifyListeners();
     _timer = Timer(busy ? _busyEvery : _idleEvery, refresh);

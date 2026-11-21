@@ -182,16 +182,17 @@ class _Slot extends StatelessWidget {
                 ),
               ),
             ),
+            // 켜짐 점은 아이콘을 가리지 않게 오른쪽 위에 붙입니다.
             if (dot)
-              Positioned(
-                bottom: 8,
+              Transform.translate(
+                offset: const Offset(13, -11),
                 child: AnimatedScale(
                   scale: active ? 1 : 0,
                   duration: const Duration(milliseconds: 380),
                   curve: Curves.elasticOut,
                   child: Container(
-                    width: 4,
-                    height: 4,
+                    width: 6,
+                    height: 6,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       color: Palette.butter,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../l10n.dart';
 import '../theme.dart';
+import '../widgets/skeleton.dart';
 
 /// 데크만 어두운 기기처럼 그려 밝은 화면에서 눈에 띄게 합니다.
 abstract final class _DeckColors {
@@ -124,11 +125,14 @@ class _DeckState extends State<Deck> with SingleTickerProviderStateMixin {
                   progress: job?.progress.clamp(0.0, 1.0) ?? 0.0,
                   label: job == null ? s.tapeHint : 'A · ${job.label}',
                   cover: job != null && job.hasCover
-                      ? Image.network(
-                          widget.api.jobCoverUri(job.id).toString(),
+                      ? CoverImage(
+                          url: widget.api.jobCoverUri(job.id).toString(),
                           headers: widget.api.headers,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                          fallback: const SizedBox.shrink(),
+                          placeholder: Bone(
+                            radius: 0,
+                            color: Palette.ink.withValues(alpha: .12),
+                          ),
                         )
                       : null,
                 ),

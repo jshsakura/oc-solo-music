@@ -99,7 +99,7 @@ class _ShellState extends State<Shell> {
   }
 
   Widget _screen(AppTab tab) => switch (tab) {
-    AppTab.player => PlayerScreen(ctl: _ctl),
+    AppTab.player => PlayerScreen(ctl: _ctl, loading: _loading),
     AppTab.library => ListenableBuilder(
       listenable: _ctl,
       builder: (_, _) => LibraryScreen(
@@ -200,7 +200,7 @@ class _ShellState extends State<Shell> {
               decoration: const BoxDecoration(
                 border: Border(left: BorderSide(color: Palette.line)),
               ),
-              child: PlayerScreen(ctl: _ctl),
+              child: PlayerScreen(ctl: _ctl, loading: _loading),
             ),
         ],
       ),
@@ -378,7 +378,7 @@ class _BottomBar extends StatelessWidget {
     child: SafeArea(
       top: false,
       child: SizedBox(
-        height: 58,
+        height: 64,
         child: Stack(
           children: [
             // 고른 탭의 아이콘과 이름을 함께 감싸는 버터색 알약이 탭 사이를 미끄러져 옮겨 갑니다.
@@ -394,21 +394,22 @@ class _BottomBar extends StatelessWidget {
               child: FractionallySizedBox(
                 widthFactor: 1 / AppTab.values.length,
                 heightFactor: 1,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Palette.butter,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Palette.butter.withValues(alpha: .45),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+                // 칸 폭을 다 채우지 않고 정사각에 가까운 타일로 아이콘과 이름을 감쌉니다.
+                child: Center(
+                  child: Container(
+                    width: 60,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Palette.butter,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Palette.butter.withValues(alpha: .45),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
