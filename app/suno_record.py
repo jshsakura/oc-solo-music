@@ -135,6 +135,12 @@ def find_dropouts(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> list[f
     return [round(i * 0.1, 1) for i in range(1, count - 1) if db[i] < -55 and db[i - 1] > -35]
 
 
+def unexplained(dropouts: list[float], known: list[float], tolerance: float = 0.3) -> list[float]:
+    """앞 녹음에서도 같은 자리에 있던 무음은 곡에 원래 들어 있는 끊김으로 보고 뺍니다.
+    재생이 끊겨 생긴 무음은 녹음할 때마다 자리가 달라지지만, 곡의 브레이크는 매번 같은 초에 옵니다."""
+    return [d for d in dropouts if not any(abs(d - k) <= tolerance for k in known)]
+
+
 def count_click_candidates(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> int:
     """튀는 지점의 개수입니다. 타악기와 구분되지 않으므로 후보로만 봅니다."""
     if len(samples) < 3:
@@ -249,20 +255,23 @@ async def capture_playback(page, webm: Path, expected: float) -> dict:
         return await asyncio.wait_for(page.evaluate(RECORD_JS), expected + MAX_RECORD_MARGIN_SEC)
 
 
-def finish_recording(webm: Path, target: Path, expected: float, stalls: int) -> Result:
-    """검사를 통과한 녹음만 최종 경로로 옮깁니다."""
+def finish_recording(webm: Path, target: Path, expected: float, stalls: int,
+                     known: list[float] | None = None) -> tuple[Result, list[float]]:
+    """검사를 통과한 녹음만 최종 경로로 옮깁니다. 이번 녹음에서 찾은 무음 자리도 돌려줍니다.
+    known 은 앞 녹음의 무음 자리이고, 같은 자리의 무음은 곡의 일부로 봐서 통과시킵니다."""
     mp3 = webm.with_suffix(".mp3")
     to_mp3(webm, mp3)
     samples = decode_mono(mp3)
     actual = len(samples) / SAMPLE_RATE
-    dropouts = find_dropouts(samples)
+    found = find_dropouts(samples)
+    dropouts = unexplained(found, known) if known is not None else found
     clicks = count_click_candidates(samples)
     numbers = {"actual": f"{actual:.2f}", "expected": f"{expected:.2f}",
                "dropouts": len(dropouts), "stalls": stalls, "clicks": clicks}
     if not duration_matches(actual, expected) or dropouts or stalls:
-        return Result(target.name, "failed", msg("suno.take_rejected", **numbers))
+        return Result(target.name, "failed", msg("suno.take_rejected", **numbers)), found
     os.replace(mp3, target)
-    return Result(target.name, "saved", msg("suno.take", **numbers))
+    return Result(target.name, "saved", msg("suno.take", **numbers)), found
 
 
 async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
@@ -282,6 +291,7 @@ async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
             # 앞서 녹음이 중간에 끊겨 표지만 빠진 곡이면 표지를 채워 둡니다.
             save_cover(target, clip.get("image_large_url") or clip.get("image_url") or "")
             return Result(target.name, "skipped", msg("suno.exists"))
+        known: list[float] | None = None
         for attempt in range(TAKE_ATTEMPTS):
             if attempt:  # 끊긴 녹음은 버리고 곡 화면을 새로 열어 처음부터 다시 녹음합니다
                 page = await context.new_page()
@@ -292,7 +302,7 @@ async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
                 info = await capture_playback(page, webm, expected)
                 if "error" in info:
                     return Result(target.name, "failed", info["error"])
-                result = finish_recording(webm, target, expected, info["stalls"])
+                result, known = finish_recording(webm, target, expected, info["stalls"], known)
             if result.ok:
                 break
             await page.close()
