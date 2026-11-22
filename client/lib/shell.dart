@@ -11,6 +11,7 @@ import 'library_screen.dart';
 import 'player/player_screen.dart';
 import 'player_controller.dart';
 import 'theme.dart';
+import 'widgets/tab_swap.dart';
 import 'widgets/motion.dart';
 import 'widgets/motion_math.dart';
 
@@ -156,7 +157,7 @@ class _ShellState extends State<Shell> {
         for (final t in AppTab.values)
           pinned && t == AppTab.player
               ? const SizedBox.shrink()
-              : _TabSwap(
+              : TabSwap(
                   active: t == current,
                   from: _from,
                   child: RepaintBoundary(child: _screen(t)),
@@ -506,67 +507,5 @@ class _TabIcon extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       builder: (_, c, _) => Icon(icon, size: size, color: c),
     ),
-  );
-}
-
-/// 탭을 바꾸면 새 화면이 고른 쪽에서 살짝 밀려 들어오며 나타납니다.
-/// 화면 자체는 IndexedStack 이 계속 쥐고 있어 상태가 그대로 남습니다.
-class _TabSwap extends StatefulWidget {
-  const _TabSwap({
-    required this.active,
-    required this.from,
-    required this.child,
-  });
-
-  final bool active;
-  final int from;
-  final Widget child;
-
-  @override
-  State<_TabSwap> createState() => _TabSwapState();
-}
-
-class _TabSwapState extends State<_TabSwap>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 480),
-    value: 1,
-  );
-  // 살짝 지나쳤다가 제자리에 서는 탄력 있는 곡선입니다.
-  late final Animation<double> _eased = CurvedAnimation(
-    parent: _c,
-    curve: Curves.easeOutBack,
-  );
-
-  @override
-  void didUpdateWidget(_TabSwap old) {
-    super.didUpdateWidget(old);
-    if (widget.active && !old.active && !reducedMotion(context)) {
-      _c.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _eased,
-    builder: (_, child) {
-      final v = _eased.value;
-      if (_c.isCompleted) return child!;
-      return Opacity(
-        opacity: (_c.value * 2.2).clamp(0.0, 1.0),
-        child: Transform.translate(
-          offset: Offset(110.0 * widget.from * (1 - v), 0),
-          child: Transform.scale(scale: .9 + .1 * v, child: child),
-        ),
-      );
-    },
-    child: widget.child,
   );
 }
