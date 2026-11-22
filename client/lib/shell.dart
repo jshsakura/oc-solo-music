@@ -41,6 +41,14 @@ class _ShellState extends State<Shell> {
   late final PlayerController _ctl = PlayerController(widget.api);
   late final JobsWatch _jobs = JobsWatch(widget.api, onFinished: _load);
   AppTab _tab = AppTab.player;
+
+  /// 방금 떠난 탭입니다. 새 화면이 다 들어올 때까지만 아래에 그려 둡니다.
+  AppTab? _leaving;
+
+  void _settled() {
+    if (_leaving != null && mounted) setState(() => _leaving = null);
+  }
+
   final _addOpened = ValueNotifier(0);
 
   /// 새 탭이 들어오는 쪽입니다. 오른쪽 탭으로 가면 1, 왼쪽이면 -1 입니다.
@@ -151,17 +159,30 @@ class _ShellState extends State<Shell> {
         if (!(pinned && t == AppTab.player)) t,
     ];
     final current = pinned && _tab == AppTab.player ? AppTab.library : _tab;
-    final pages = IndexedStack(
-      index: current.index,
+    // 떠나는 화면은 새 화면이 다 덮을 때까지 아래에 그대로 둡니다. 예전에는 누르는 순간 사라져
+    // 빈 바탕이 먼저 보였다가 새 화면이 떠올라, 한 번 누른 게 두 번에 걸쳐 그려지는 것처럼 보였습니다.
+    // 안 보이는 화면도 Offstage 가 상태를 쥐고 있습니다.
+    final shown = {current, ?_leaving};
+    final pages = Stack(
+      fit: StackFit.expand,
       children: [
-        for (final t in AppTab.values)
-          pinned && t == AppTab.player
-              ? const SizedBox.shrink()
-              : TabSwap(
+        for (final t in [...AppTab.values.where((t) => t != current), current])
+          if (!(pinned && t == AppTab.player))
+            Offstage(
+              key: ValueKey(t),
+              offstage: !shown.contains(t),
+              child: TickerMode(
+                enabled: shown.contains(t),
+                child: TabSwap(
                   active: t == current,
                   from: _from,
-                  child: RepaintBoundary(child: _screen(t)),
+                  onSettled: t == current ? _settled : null,
+                  child: RepaintBoundary(
+                    child: ColoredBox(color: Palette.ground, child: _screen(t)),
+                  ),
                 ),
+              ),
+            ),
       ],
     );
     void pick(AppTab t) {
@@ -171,6 +192,7 @@ class _ShellState extends State<Shell> {
       if (t == AppTab.add) _addOpened.value++;
       setState(() {
         _from = t.index > current.index ? 1 : -1;
+        _leaving = current;
         _tab = t;
       });
     }
