@@ -41,3 +41,12 @@ def test_hook_links_are_accepted_as_input(client, monkeypatch):
     assert suno_record.validate_url(f"https://suno.com/hook/{HOOK}")
     r = client.post("/api/add", json={"urls": [f"https://suno.com/hook/{HOOK}"]})
     assert r.status_code == 200
+
+
+def test_silence_at_the_same_second_in_both_takes_is_part_of_the_song():
+    from app.suno_record import unexplained
+
+    # 두 번 녹음해 같은 초에 무음이 있으면 곡의 브레이크이고, 다른 자리면 재생이 끊긴 것입니다.
+    assert unexplained([61.2, 122.4], [61.3, 122.4]) == []
+    assert unexplained([61.2, 90.0], [61.2]) == [90.0]
+    assert unexplained([10.0], []) == [10.0]
