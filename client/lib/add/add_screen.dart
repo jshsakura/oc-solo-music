@@ -61,8 +61,9 @@ class _AddScreenState extends State<AddScreen> {
   void initState() {
     super.initState();
     // 탭 화면은 앱이 뜰 때 한꺼번에 만들어지므로 여기서 클립보드를 읽으면 누르지도 않았는데 읽게 됩니다.
-    // 폰 브라우저는 그때 붙여넣기 확인 풍선을 띄워 다음 탭을 삼키므로, 추가 탭을 누른 순간에만 읽습니다.
-    widget.opened?.addListener(_pasteFromClipboard);
+    // 폰 브라우저는 클립보드를 읽을 때마다 붙여넣기 확인 풍선을 띄우므로, 웹에서는 저절로 읽지 않고
+    // 입력칸의 붙여넣기 단추를 누를 때만 읽습니다. 앱은 풍선이 없어 탭을 열 때 알아서 넣습니다.
+    if (!kIsWeb) widget.opened?.addListener(_pasteFromClipboard);
   }
 
   Future<void> _pasteFromClipboard() async {
@@ -78,6 +79,21 @@ class _AddScreenState extends State<AddScreen> {
     _pasted = text;
     _input.text = links.join('\n');
     _say(S.of(context).pastedFromClipboard(links.length));
+  }
+
+  /// 붙여넣기 단추를 눌렀을 때입니다. 수노 주소만 골라 넣고, 없으면 복사한 글을 그대로 넣습니다.
+  Future<void> _pasteOnTap() async {
+    final String? text;
+    try {
+      text = (await Clipboard.getData(Clipboard.kTextPlain))?.text;
+    } on Exception {
+      return;
+    }
+    if (!mounted || text == null || text.trim().isEmpty) return;
+    final links = AddScreen.sunoLinks(text);
+    _input.text = links.isEmpty ? text.trim() : links.join('\n');
+    _pasted = text;
+    if (links.isNotEmpty) _say(S.of(context).pastedFromClipboard(links.length));
   }
 
   @override
@@ -176,6 +192,7 @@ class _AddScreenState extends State<AddScreen> {
                 focus: _focus,
                 busy: _sending,
                 onSubmit: _submit,
+                onPaste: kIsWeb ? _pasteOnTap : null,
               ),
               if (_note != null || w.error != null)
                 Padding(
@@ -238,12 +255,16 @@ class _InputRow extends StatelessWidget {
     required this.focus,
     required this.busy,
     required this.onSubmit,
+    this.onPaste,
   });
 
   final TextEditingController controller;
   final FocusNode focus;
   final bool busy;
   final VoidCallback onSubmit;
+
+  /// 웹에서만 입력칸 안에 붙여넣기 단추를 둡니다.
+  final VoidCallback? onPaste;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -257,6 +278,15 @@ class _InputRow extends StatelessWidget {
           style: const TextStyle(fontSize: 14),
           decoration: InputDecoration(
             hintText: S.of(context).inputHint,
+            suffixIcon: onPaste == null
+                ? null
+                : IconButton(
+                    key: const Key('add-paste'),
+                    tooltip: S.of(context).pasteLabel,
+                    icon: const Icon(Icons.content_paste_rounded, size: 20),
+                    color: Palette.secondary,
+                    onPressed: onPaste,
+                  ),
             hintStyle: const TextStyle(color: Palette.faint),
             filled: true,
             fillColor: Palette.surface,
