@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     liked     INTEGER NOT NULL DEFAULT 0,
     added     INTEGER NOT NULL,
     archived  INTEGER NOT NULL DEFAULT 0, -- 1 이면 앱 목록에서 뺐고 파일은 archive/ 에 있다
-    source    TEXT NOT NULL DEFAULT ''    -- suno | upload | 빈 값(폴더에 직접 넣은 파일). 예전 youtube 도 남아 있을 수 있다
+    source    TEXT NOT NULL DEFAULT '',   -- suno | upload | 빈 값(폴더에 직접 넣은 파일). 예전 youtube 도 남아 있을 수 있다
+    lyrics    TEXT                        -- 수노 가사. NULL 이면 아직 안 받아 봤고, 빈 값이면 연주곡이거나 가사가 없다
 );
 """
 
@@ -48,6 +49,8 @@ def connect(lib: Path) -> sqlite3.Connection:
     if "source" not in columns:
         db.execute("ALTER TABLE tracks ADD COLUMN source TEXT NOT NULL DEFAULT ''")
         db.execute("UPDATE tracks SET source='suno' WHERE suno_id != ''")
+    if "lyrics" not in columns:
+        db.execute("ALTER TABLE tracks ADD COLUMN lyrics TEXT")
     return db
 
 
@@ -109,16 +112,28 @@ def restore(lib: Path, track_id: str) -> None:
 
 def upsert(lib: Path, track_id: str, *, title: str, artist: str = "", tags: str = "",
            duration: float | None = None, image_url: str = "", suno_id: str = "",
-           source: str = "suno") -> None:
-    """받아 둔 곡을 넣습니다. 이미 있으면 좋아요와 추가 시각은 그대로 둡니다."""
+           source: str = "suno", lyrics: str | None = None) -> None:
+    """받아 둔 곡을 넣습니다. 이미 있으면 좋아요와 추가 시각은 그대로 두고, 가사를 안 주면 받아 둔 가사도 그대로 둡니다."""
     with connect(lib) as db:
         db.execute(
-            """INSERT INTO tracks (id, title, artist, tags, duration, image_url, suno_id, source, added)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """INSERT INTO tracks (id, title, artist, tags, duration, image_url, suno_id, source, lyrics, added)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET title=excluded.title, artist=excluded.artist,
                  tags=excluded.tags, duration=excluded.duration, image_url=excluded.image_url,
-                 suno_id=excluded.suno_id, source=excluded.source""",
-            (track_id, title, artist, tags, duration, image_url, suno_id, source, int(time.time())))
+                 suno_id=excluded.suno_id, source=excluded.source,
+                 lyrics=COALESCE(excluded.lyrics, tracks.lyrics)""",
+            (track_id, title, artist, tags, duration, image_url, suno_id, source, lyrics, int(time.time())))
+
+
+def set_lyrics(lib: Path, track_id: str, lyrics: str) -> None:
+    with connect(lib) as db:
+        db.execute("UPDATE tracks SET lyrics=? WHERE id=?", (lyrics, track_id))
+
+
+def lyrics(lib: Path, track_id: str) -> str:
+    with connect(lib) as db:
+        row = db.execute("SELECT lyrics FROM tracks WHERE id=?", (track_id,)).fetchone()
+    return (row["lyrics"] if row else None) or ""
 
 
 def sync(lib: Path) -> None:

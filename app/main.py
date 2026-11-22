@@ -60,6 +60,7 @@ def track_json(row: sqlite3.Row) -> dict:
         "id": row["id"], "title": row["title"], "artist": row["artist"], "tags": row["tags"],
         "duration": row["duration"], "cover": (LIB / f"{row['id']}.jpg").exists(),
         "liked": bool(row["liked"]), "added": row["added"], "source": row["source"],
+        "lyrics": bool(row["lyrics"]),
     }
 
 
@@ -253,6 +254,13 @@ def api_download(track_id: str):
     name = " ".join(_UNSAFE_NAME.sub(" ", f"{artist} - {title}" if artist else title).split())[:150] or track_id
     return FileResponse(audio, filename=name + audio.suffix,
                         media_type="audio/mp4" if audio.suffix == ".m4a" else "audio/mpeg")
+
+
+@app.get("/api/lyrics/{track_id}")
+def api_lyrics(track_id: str):
+    """재생 화면 옆에 띄울 가사입니다. 목록을 가볍게 두려고 곡마다 따로 받습니다."""
+    find_track_file(track_id)
+    return {"lyrics": library.lyrics(LIB, track_id)}
 
 
 @app.get("/api/cover/{track_id}")

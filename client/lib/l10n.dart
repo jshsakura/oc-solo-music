@@ -49,6 +49,7 @@ abstract class S {
 
   // 재생
   String get nowPlaying;
+  String get lyricsLabel;
   String get hintStart;
   String get hintRestart;
   String get hintPrevRecord;
@@ -224,6 +225,8 @@ class _Ko extends S {
   String get emptyCrate => '이 분류에는 음악이 없습니다';
   @override
   String get nowPlaying => '지금 재생';
+  @override
+  String get lyricsLabel => '가사';
   @override
   String get hintStart => '턴테이블을 톡 치거나 바늘을 내려 재생합니다';
   @override
@@ -529,6 +532,8 @@ class _En extends S {
   String get emptyCrate => 'No records here yet';
   @override
   String get nowPlaying => 'Now playing';
+  @override
+  String get lyricsLabel => 'Lyrics';
   @override
   String get hintStart => 'Tap the record or drop the needle to play';
   @override
@@ -846,6 +851,8 @@ class _Ja extends S {
   String get emptyCrate => 'ここにはまだレコードがありません';
   @override
   String get nowPlaying => '再生中';
+  @override
+  String get lyricsLabel => '歌詞';
   @override
   String get hintStart => 'レコードをタップするか針を落とすと再生します';
   @override
