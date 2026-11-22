@@ -115,6 +115,7 @@ enum ApiFail {
   upload,
   jobs,
   cancel,
+  retry,
   remove,
   restore,
   archive,
@@ -359,6 +360,11 @@ class Api {
         ? body.whereType<Map<String, dynamic>>().map(Job.fromJson).toList()
         : const [];
   }
+
+  Future<void> retry(String jobId) => _json(
+    _client.post(_at('/api/jobs/${Uri.encodeComponent(jobId)}/retry')),
+    ApiFail.retry,
+  );
 
   Future<void> cancel(String jobId) => _json(
     _client.post(_at('/api/jobs/${Uri.encodeComponent(jobId)}/cancel')),

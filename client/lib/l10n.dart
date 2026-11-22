@@ -105,6 +105,7 @@ abstract class S {
   String get jobWaiting;
   String get suno;
   String get removeFromQueue;
+  String get retryJob;
   String get preparingNext;
   String get idle;
   String recordingPct(int p);
@@ -339,6 +340,8 @@ class _Ko extends S {
   @override
   String get removeFromQueue => '대기열에서 빼기';
   @override
+  String get retryJob => '다시 녹음';
+  @override
   String get preparingNext => '다음 곡을 준비합니다';
   @override
   String get idle => '대기 중';
@@ -489,6 +492,7 @@ class _Ko extends S {
     ApiFail.upload => '파일을 올리지 못했습니다',
     ApiFail.jobs => '작업 목록을 받지 못했습니다',
     ApiFail.cancel => '작업을 멈추지 못했습니다',
+    ApiFail.retry => '다시 녹음하지 못했습니다',
     ApiFail.remove => '곡을 빼지 못했습니다',
     ApiFail.restore => '곡을 되살리지 못했습니다',
     ApiFail.archive => '뺀 곡 목록을 받지 못했습니다',
@@ -653,6 +657,8 @@ class _En extends S {
   @override
   String get removeFromQueue => 'Remove from queue';
   @override
+  String get retryJob => 'Record again';
+  @override
   String get preparingNext => 'Getting the next song ready';
   @override
   String get idle => 'Idle';
@@ -809,6 +815,7 @@ class _En extends S {
     ApiFail.upload => 'Could not upload the file',
     ApiFail.jobs => 'Could not load the jobs',
     ApiFail.cancel => 'Could not stop the job',
+    ApiFail.retry => 'Could not record it again',
     ApiFail.remove => 'Could not remove the song',
     ApiFail.restore => 'Could not restore the song',
     ApiFail.archive => 'Could not load removed songs',
@@ -965,6 +972,8 @@ class _Ja extends S {
   @override
   String get removeFromQueue => 'キューから外す';
   @override
+  String get retryJob => 'もう一度録音';
+  @override
   String get preparingNext => '次の曲を準備しています';
   @override
   String get idle => '待機中';
@@ -1114,6 +1123,7 @@ class _Ja extends S {
     ApiFail.upload => 'ファイルをアップロードできませんでした',
     ApiFail.jobs => '作業の一覧を読み込めませんでした',
     ApiFail.cancel => '作業を止められませんでした',
+    ApiFail.retry => 'もう一度録音できませんでした',
     ApiFail.remove => '曲を外せませんでした',
     ApiFail.restore => '曲を戻せませんでした',
     ApiFail.archive => '外した曲の一覧を読み込めませんでした',

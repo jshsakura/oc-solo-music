@@ -260,3 +260,32 @@ def test_shipped_apk_is_offered_and_downloads_as_an_android_package(lib, monkeyp
     assert res.status_code == 200
     assert res.headers["content-type"] == "application/vnd.android.package-archive"
     assert "Solo.apk" in res.headers["content-disposition"]
+
+
+def test_failed_job_can_be_retried_once_and_not_while_queued(lib, monkeypatch):
+    import asyncio
+    from tests.conftest import make_client
+
+    with make_client(lib, monkeypatch) as c:
+        import app.main as main
+        runs = []
+
+        async def fake_record(job):
+            runs.append(job["id"])
+            main.persist(job, status="failed", detail="dropped out")
+
+        monkeypatch.setattr(main, "record", fake_record)
+        c.post("/api/add", json={"urls": ["https://suno.com/s/AAAA0000"]})
+        for _ in range(100):
+            if runs:
+                break
+            import time; time.sleep(0.01)
+        job = c.get("/api/jobs").json()[0]
+        assert job["status"] == "failed"
+
+        monkeypatch.setattr(main, "record", lambda job: asyncio.sleep(3600))
+        assert c.post(f"/api/jobs/{job['id']}/retry").status_code == 200
+        again = c.get("/api/jobs").json()[0]
+        assert again["status"] in ("queued", "recording") and again["detail"] == ""
+        assert c.post(f"/api/jobs/{job['id']}/retry").status_code == 409
+        assert c.post("/api/jobs/nope/retry").status_code == 404

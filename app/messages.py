@@ -52,6 +52,11 @@ CATALOG: dict[str, dict[str, str]] = {
         "en": "This job has already finished",
         "ja": "この作業はすでに終わっています",
     },
+    "job.not_retryable": {
+        "ko": "이미 대기 중이거나 녹음한 곡입니다",
+        "en": "This song is already queued or recorded",
+        "ja": "この曲はすでに待機中か録音済みです",
+    },
     "job.stopped_recording": {
         "ko": "녹음을 멈췄습니다",
         "en": "Recording stopped",

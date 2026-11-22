@@ -60,9 +60,9 @@ class _AddScreenState extends State<AddScreen> {
   @override
   void initState() {
     super.initState();
+    // 탭 화면은 앱이 뜰 때 한꺼번에 만들어지므로 여기서 클립보드를 읽으면 누르지도 않았는데 읽게 됩니다.
+    // 폰 브라우저는 그때 붙여넣기 확인 풍선을 띄워 다음 탭을 삼키므로, 추가 탭을 누른 순간에만 읽습니다.
     widget.opened?.addListener(_pasteFromClipboard);
-    // 처음 여는 순간에는 이 화면이 막 만들어져 알림을 놓치므로 바로 한 번 읽습니다.
-    if (widget.opened != null) _pasteFromClipboard();
   }
 
   Future<void> _pasteFromClipboard() async {
@@ -216,7 +216,11 @@ class _AddScreenState extends State<AddScreen> {
                         children: [
                           const _HistoryTitle(),
                           for (final j in history)
-                            _JobRow(job: j, onCancel: () => w.cancel(j)),
+                            _JobRow(
+                              job: j,
+                              onCancel: () => w.cancel(j),
+                              onRetry: () => w.retry(j),
+                            ),
                         ],
                       ),
               ),
@@ -454,10 +458,15 @@ class _HistorySkeleton extends StatelessWidget {
 }
 
 class _JobRow extends StatelessWidget {
-  const _JobRow({required this.job, required this.onCancel});
+  const _JobRow({
+    required this.job,
+    required this.onCancel,
+    required this.onRetry,
+  });
 
   final Job job;
   final VoidCallback onCancel;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -510,6 +519,30 @@ class _JobRow extends StatelessWidget {
               ],
             ),
           ),
+          // 실패했거나 멈춘 곡은 같은 주소로 다시 녹음할 수 있습니다.
+          if (job.status == 'failed' || job.status == 'canceled')
+            Semantics(
+              button: true,
+              label: s.retryJob,
+              child: Tooltip(
+                message: s.retryJob,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    key: Key('job-retry-${job.id}'),
+                    onTap: onRetry,
+                    child: const SizedBox.square(
+                      dimension: 40,
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 21,
+                        color: Palette.ink,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (job.isActive)
             Semantics(
               button: true,
