@@ -96,6 +96,7 @@ abstract class S {
   String queued(int n);
   String get alreadyHave;
   String pastedFromClipboard(int n);
+  String get pasteLabel;
   String pitchHint(String pct);
   String get pitchLabel;
   String get powerLabel;
@@ -316,6 +317,8 @@ class _Ko extends S {
   String get alreadyHave => '이미 받았거나 대기 중인 곡입니다';
   @override
   String pastedFromClipboard(int n) => '복사해 둔 수노 주소 $n개를 넣었습니다. 추가를 누르면 녹음합니다';
+  @override
+  String get pasteLabel => '붙여넣기';
   @override
   String pitchHint(String pct) => '빠르기 $pct';
   @override
@@ -633,6 +636,8 @@ class _En extends S {
   String pastedFromClipboard(int n) =>
       'Pasted $n Suno link${n == 1 ? '' : 's'} from your clipboard. Tap add to record';
   @override
+  String get pasteLabel => 'Paste';
+  @override
   String pitchHint(String pct) => 'Pitch $pct';
   @override
   String get pitchLabel =>
@@ -948,6 +953,8 @@ class _Ja extends S {
   String get alreadyHave => '保存済みか、すでにキューにある曲です';
   @override
   String pastedFromClipboard(int n) => 'コピーしたSunoのリンクを$n件入れました。追加を押すと録音します';
+  @override
+  String get pasteLabel => '貼り付け';
   @override
   String pitchHint(String pct) => 'ピッチ $pct';
   @override
