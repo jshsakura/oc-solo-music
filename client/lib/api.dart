@@ -14,6 +14,7 @@ class Track {
     required this.duration,
     required this.hasCover,
     required this.liked,
+    this.hasLyrics = false,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -24,6 +25,7 @@ class Track {
     duration: ((json['duration'] as num?) ?? 0).toDouble(),
     hasCover: json['cover'] == true,
     liked: json['liked'] == true,
+    hasLyrics: json['lyrics'] == true,
   );
 
   final String id;
@@ -33,6 +35,9 @@ class Track {
   final double duration;
   final bool hasCover;
   final bool liked;
+
+  /// 수노에서 가사를 받아 둔 곡입니다. 연주곡이면 false 입니다.
+  final bool hasLyrics;
 
   /// 표지가 없을 때 판 라벨에 크게 쓰는 첫 글자입니다.
   String get letter => title.isEmpty
@@ -47,6 +52,7 @@ class Track {
     duration: duration,
     hasCover: hasCover,
     liked: value,
+    hasLyrics: hasLyrics,
   );
 }
 
@@ -265,6 +271,22 @@ class Api {
   }
 
   Uri downloadUri(String id) => _at('/api/download/${Uri.encodeComponent(id)}');
+
+  /// 곡 하나의 가사입니다. 못 받으면 빈 글로 돌려줘서 가사 칸이 조용히 숨습니다.
+  Future<String> lyrics(String id) async {
+    try {
+      final res = await _client.get(
+        _at('/api/lyrics/${Uri.encodeComponent(id)}'),
+      );
+      if (res.statusCode != 200) return '';
+      final body = jsonDecode(utf8.decode(res.bodyBytes));
+      return body is Map && body['lyrics'] is String
+          ? body['lyrics'] as String
+          : '';
+    } on Exception {
+      return '';
+    }
+  }
 
   Future<List<Track>> tracks() async {
     final res = await _client.get(_at('/api/tracks'));

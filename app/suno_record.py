@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -164,13 +165,39 @@ def peek_clip(url: str, cover: Path) -> dict:
     return info | ({"duration": duration} if duration > 0 else {})
 
 
+def lyrics_of(clip: dict) -> str:
+    """수노 곡 정보에서 가사를 꺼냅니다. 연주곡이면 프롬프트가 있어도 가사가 아니므로 비웁니다."""
+    meta = clip.get("metadata") or {}
+    if meta.get("make_instrumental"):
+        return ""
+    return str(meta.get("prompt") or "").strip()
+
+
+def backfill_lyrics(lib: Path) -> int:
+    """가사를 아직 안 받아 본 수노 곡만 한 곡씩 천천히 물어 채웁니다. 채운 곡 수를 돌려줍니다."""
+    with library.connect(lib) as db:
+        rows = db.execute("SELECT id, suno_id FROM tracks WHERE suno_id != '' AND lyrics IS NULL").fetchall()
+    filled = 0
+    for n, row in enumerate(rows):
+        if n:
+            time.sleep(0.4 + 0.5 * (n % 2))  # 사이트에 몰아서 묻지 않도록 요청 사이를 띄웁니다
+        try:
+            text = lyrics_of(fetch_clip(row["suno_id"]))
+        except (OSError, ValueError):
+            continue
+        library.set_lyrics(lib, row["id"], text)
+        filled += 1
+    return filled
+
+
 def write_sidecar(target: Path, clip_id: str, clip: dict, duration: float) -> None:
     """플레이어가 제목·커버·태그를 보여줄 수 있게 곡 정보를 solo.db 에 남기고 표지를 받아 둡니다.
     서버가 재시작돼도 정보가 빠지지 않도록 녹음기가 끝까지 직접 저장합니다."""
     library.upsert(
         target.parent, target.stem, title=clip.get("title") or "", artist=clip.get("display_name") or "",
         tags=(clip.get("metadata") or {}).get("tags") or "", duration=duration,
-        image_url=clip.get("image_large_url") or clip.get("image_url") or "", suno_id=clip_id)
+        image_url=clip.get("image_large_url") or clip.get("image_url") or "", suno_id=clip_id,
+        lyrics=lyrics_of(clip))
     save_cover(target, clip.get("image_large_url") or clip.get("image_url") or "")
 
 
@@ -292,12 +319,18 @@ async def record_all(urls: list[str], out_dir: Path, jobs: int, force: bool) -> 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("urls", nargs="+", help="suno.com/song/<id> or suno.com/s/<code>")
+    parser.add_argument("urls", nargs="*", help="suno.com/song/<id> or suno.com/s/<code>")
     parser.add_argument("-o", "--out", type=Path, default=Path.home() / "app" / "suno-music")
     parser.add_argument("-j", "--jobs", type=int, default=1, help="songs to record at once (default 1)")
     parser.add_argument("--force", action="store_true", help="record again even if the file exists")
     parser.add_argument("--codes", action="store_true", help="print message codes for the server instead of text")
+    parser.add_argument("--backfill-lyrics", action="store_true", help="fetch lyrics for saved songs that have none yet")
     args = parser.parse_args()
+    if args.backfill_lyrics:
+        print(f"lyrics checked: {backfill_lyrics(args.out)}")
+        return 0
+    if not args.urls:
+        parser.error("give at least one url")
     if args.jobs < 1:
         parser.error("--jobs must be 1 or more")
     try:
