@@ -36,8 +36,12 @@ class ShelfGrid extends StatefulWidget {
     required this.tracks,
     required this.playLabel,
     required this.onPlay,
+    this.animateIn = true,
   });
 
+  /// 보기를 바꿔 격자로 들어올 때만 판이 솟아오릅니다. 처음 열 때는 같은 모양의 빈 자리 위로
+  /// 표지만 떠올라, 빈 격자와 판이 두 번 그려지는 것처럼 보이지 않습니다.
+  final bool animateIn;
   final Api api;
   final List<Track> tracks;
   final String Function(String title) playLabel;
@@ -57,7 +61,7 @@ class _ShelfGridState extends State<ShelfGrid>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (MediaQuery.disableAnimationsOf(context) || !widget.animateIn) {
       _enter.value = 1;
     } else if (_enter.status == AnimationStatus.dismissed) {
       _enter.forward();

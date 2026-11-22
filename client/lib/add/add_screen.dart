@@ -60,9 +60,9 @@ class _AddScreenState extends State<AddScreen> {
   @override
   void initState() {
     super.initState();
+    // 탭 화면은 앱이 뜰 때 한꺼번에 만들어지므로 여기서 클립보드를 읽으면 누르지도 않았는데 읽게 됩니다.
+    // 폰 브라우저는 그때 붙여넣기 확인 풍선을 띄워 다음 탭을 삼키므로, 추가 탭을 누른 순간에만 읽습니다.
     widget.opened?.addListener(_pasteFromClipboard);
-    // 처음 여는 순간에는 이 화면이 막 만들어져 알림을 놓치므로 바로 한 번 읽습니다.
-    if (widget.opened != null) _pasteFromClipboard();
   }
 
   Future<void> _pasteFromClipboard() async {

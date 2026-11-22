@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api.dart';
 import '../l10n.dart';
+import '../store/local_value.dart';
 import '../widgets/scroll_header.dart';
 import '../theme.dart';
 import '../widgets/skeleton.dart';
@@ -65,6 +65,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // 저장해 둔 보기를 되살릴 때는 바꾸는 움직임을 보이지 않습니다.
   bool _userSwitched = false;
+
+  /// 기억해 둔 보기를 읽기 전입니다. 그동안은 아무 보기도 그리지 않아 판 상자 자리가 잠깐 떴다가
+  /// 격자로 바뀌는 일이 없습니다. 읽는 데는 한 프레임 남짓 걸립니다.
+  bool _restoring = true;
   bool _out = false;
   int _front = 0;
   double _dragStart = 0;
@@ -91,16 +95,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _restoreView() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(homeViewKey);
-      final view = HomeView.values.where((v) => v.name == saved).firstOrNull;
-      if (view != null && mounted && !_userSwitched) {
-        setState(() => _view = view);
-      }
-    } catch (_) {
-      // 기억해 둔 보기를 못 읽으면 판 상자로 시작합니다.
-    }
+    // 기억해 둔 보기를 못 읽으면 판 상자로 시작합니다.
+    final saved = await readLocal(homeViewKey);
+    final view = HomeView.values.where((v) => v.name == saved).firstOrNull;
+    if (view != null && mounted && !_userSwitched) _view = view;
+    if (mounted) setState(() => _restoring = false);
   }
 
   Future<void> _toggleView() async {
@@ -112,12 +111,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _userSwitched = true;
       _view = next;
     });
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(homeViewKey, next.name);
-    } catch (_) {
-      // 저장하지 못해도 이번에 고른 보기는 그대로 씁니다.
-    }
+    await writeLocal(homeViewKey, next.name);
   }
 
   void _playFrom(int index) {
@@ -324,17 +318,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     : const Duration(milliseconds: 320),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, a) => FadeTransition(
-                  opacity: a,
-                  child: ScaleTransition(
-                    scale: Tween(begin: .96, end: 1.0).animate(a),
-                    alignment: Alignment.topCenter,
-                    child: child,
-                  ),
-                ),
+                // 보기를 바꿀 때는 옛 보기만 옅어지고, 새 보기는 제 등장 동작 하나로만 들어옵니다.
+                transitionBuilder: (child, a) =>
+                    FadeTransition(opacity: a, child: child),
                 child: KeyedSubtree(
-                  key: ValueKey(_shownView),
-                  child: _stage(s, shown),
+                  key: ValueKey((_shownView, _restoring)),
+                  child: _restoring
+                      ? const SizedBox.expand()
+                      : _stage(s, shown),
                 ),
               ),
             ),
@@ -399,6 +390,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
       return ShelfGrid(
         key: ValueKey(_crate),
+        animateIn: _userSwitched,
         api: widget.api,
         tracks: shown,
         playLabel: s.homeShelfPlay,
