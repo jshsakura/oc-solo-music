@@ -55,6 +55,15 @@ class JobsWatch extends ChangeNotifier {
     _timer = Timer(busy ? _busyEvery : _idleEvery, refresh);
   }
 
+  Future<void> retry(Job job) async {
+    try {
+      await api.retry(job.id);
+    } on Exception catch (e) {
+      error = e;
+    }
+    await refresh();
+  }
+
   Future<void> cancel(Job job) async {
     try {
       await api.cancel(job.id);

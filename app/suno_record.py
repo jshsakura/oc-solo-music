@@ -29,6 +29,8 @@ SAMPLE_RATE = 48000
 DURATION_TOLERANCE_SEC = 0.5
 PAGE_SETTLE_MS = 5000
 PLAY_SETTLE_MS = 6000
+# 재생이 끊겨 검사에 떨어진 녹음은 곡 화면을 다시 열어 이만큼까지 다시 녹음합니다.
+TAKE_ATTEMPTS = 2
 MAX_RECORD_MARGIN_SEC = 60
 CLIP_API = "https://studio-api.prod.suno.com/api/clip/"
 HOOK_API = "https://studio-api.prod.suno.com/api/video/hooks/"
@@ -280,12 +282,20 @@ async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
             # 앞서 녹음이 중간에 끊겨 표지만 빠진 곡이면 표지를 채워 둡니다.
             save_cover(target, clip.get("image_large_url") or clip.get("image_url") or "")
             return Result(target.name, "skipped", msg("suno.exists"))
-        with tempfile.TemporaryDirectory(dir=out_dir, prefix=".recording-") as tmp:
-            webm = Path(tmp) / "capture.webm"
-            info = await capture_playback(page, webm, expected)
-            if "error" in info:
-                return Result(target.name, "failed", info["error"])
-            result = finish_recording(webm, target, expected, info["stalls"])
+        for attempt in range(TAKE_ATTEMPTS):
+            if attempt:  # 끊긴 녹음은 버리고 곡 화면을 새로 열어 처음부터 다시 녹음합니다
+                page = await context.new_page()
+                await page.goto(song_url(clip_id), wait_until="domcontentloaded", timeout=60000)
+                await page.wait_for_timeout(PAGE_SETTLE_MS)
+            with tempfile.TemporaryDirectory(dir=out_dir, prefix=".recording-") as tmp:
+                webm = Path(tmp) / "capture.webm"
+                info = await capture_playback(page, webm, expected)
+                if "error" in info:
+                    return Result(target.name, "failed", info["error"])
+                result = finish_recording(webm, target, expected, info["stalls"])
+            if result.ok:
+                break
+            await page.close()
         if target.exists():
             write_sidecar(target, clip_id, clip, expected)
         return result

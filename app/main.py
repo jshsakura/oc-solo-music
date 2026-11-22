@@ -340,6 +340,20 @@ async def api_cancel(job_id: str) -> dict:
     return {"canceled": job_id}
 
 
+@app.post("/api/jobs/{job_id}/retry")
+async def api_retry(job_id: str) -> dict:
+    """실패했거나 멈춘 녹음을 같은 주소로 다시 대기열에 넣습니다."""
+    job = next((j for j in jobs if j["id"] == job_id), None)
+    if job is None:
+        raise SoloError(404, "job.not_found")
+    busy = any(j["key"] == job["key"] and j["status"] in ACTIVE for j in jobs)
+    if job["status"] not in ("failed", "canceled") or busy:
+        raise SoloError(409, "job.not_retryable")
+    persist(job, status="queued", progress=0.0, detail="")
+    queues[job["kind"]].put_nowait(job)
+    return {"retried": job_id}
+
+
 @app.get("/api/jobs/{job_id}/cover")
 def api_job_cover(job_id: str):
     cover = job_cover(job_id) if re.fullmatch(r"[0-9a-f]{12}", job_id) else None

@@ -216,7 +216,11 @@ class _AddScreenState extends State<AddScreen> {
                         children: [
                           const _HistoryTitle(),
                           for (final j in history)
-                            _JobRow(job: j, onCancel: () => w.cancel(j)),
+                            _JobRow(
+                              job: j,
+                              onCancel: () => w.cancel(j),
+                              onRetry: () => w.retry(j),
+                            ),
                         ],
                       ),
               ),
@@ -454,10 +458,15 @@ class _HistorySkeleton extends StatelessWidget {
 }
 
 class _JobRow extends StatelessWidget {
-  const _JobRow({required this.job, required this.onCancel});
+  const _JobRow({
+    required this.job,
+    required this.onCancel,
+    required this.onRetry,
+  });
 
   final Job job;
   final VoidCallback onCancel;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -510,6 +519,30 @@ class _JobRow extends StatelessWidget {
               ],
             ),
           ),
+          // 실패했거나 멈춘 곡은 같은 주소로 다시 녹음할 수 있습니다.
+          if (job.status == 'failed' || job.status == 'canceled')
+            Semantics(
+              button: true,
+              label: s.retryJob,
+              child: Tooltip(
+                message: s.retryJob,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    key: Key('job-retry-${job.id}'),
+                    onTap: onRetry,
+                    child: const SizedBox.square(
+                      dimension: 40,
+                      child: Icon(
+                        Icons.refresh_rounded,
+                        size: 21,
+                        color: Palette.ink,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (job.isActive)
             Semantics(
               button: true,
