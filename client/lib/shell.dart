@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'add/add_screen.dart';
 import 'add/jobs_watch.dart';
@@ -14,6 +15,7 @@ import 'theme.dart';
 import 'widgets/tab_swap.dart';
 import 'widgets/motion.dart';
 import 'widgets/motion_math.dart';
+import 'widgets/track_menu.dart';
 
 enum AppTab { home, library, player, add, connect }
 
@@ -109,6 +111,88 @@ class _ShellState extends State<Shell> {
     }
   }
 
+  void _fail(Object e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(S.of(context).describe(e))));
+  }
+
+  Future<void> _playTrack(Track t) async {
+    final i = _tracks.indexWhere((x) => x.id == t.id);
+    if (i < 0) return;
+    setState(() => _tab = AppTab.player);
+    await _ctl.load(_tracks, start: i, play: true);
+  }
+
+  /// 곡 메뉴를 열고 고른 동작을 실행합니다. 빼기는 파일이 archive 에 남으므로 묻지 않고 되돌리기를 줍니다.
+  Future<void> _menu(Track t, Offset? at) async {
+    if (at == null) HapticFeedback.mediumImpact();
+    final action = await showTrackMenu(
+      context,
+      track: t,
+      api: widget.api,
+      at: at,
+    );
+    if (action == null || !mounted) return;
+    try {
+      switch (action) {
+        case TrackAction.play:
+          await _playTrack(t);
+        case TrackAction.like:
+          if (_ctl.current?.id == t.id) {
+            // 재생 중인 곡은 컨트롤러가 대기열을 고치고 _syncLikes 가 목록에 반영합니다.
+            await _ctl.toggleLike();
+          } else {
+            final liked = await widget.api.toggleLike(t.id);
+            if (!mounted) return;
+            setState(
+              () => _tracks = [
+                for (final x in _tracks) x.id == t.id ? x.withLiked(liked) : x,
+              ],
+            );
+          }
+        case TrackAction.download:
+          await launchUrl(
+            widget.api.downloadUri(t.id),
+            webOnlyWindowName: '_self',
+          );
+        case TrackAction.remove:
+          await widget.api.remove(t.id);
+          if (!mounted) return;
+          setState(
+            () => _tracks = [
+              for (final x in _tracks)
+                if (x.id != t.id) x,
+            ],
+          );
+          final s = S.of(context);
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(s.removedFromList),
+                action: SnackBarAction(
+                  label: s.undo,
+                  onPressed: () => _undoRemove(t),
+                ),
+              ),
+            );
+      }
+    } on Exception catch (e) {
+      _fail(e);
+    }
+  }
+
+  Future<void> _undoRemove(Track t) async {
+    try {
+      await widget.api.restore(t.id);
+      await _load();
+    } on Exception catch (e) {
+      _fail(e);
+    }
+  }
+
   Widget _screen(AppTab tab) => switch (tab) {
     AppTab.player => PlayerScreen(ctl: _ctl, loading: _loading),
     AppTab.library => ListenableBuilder(
@@ -121,6 +205,7 @@ class _ShellState extends State<Shell> {
         onRetry: _load,
         currentId: _ctl.current?.id,
         playing: _ctl.playing,
+        onMenu: _menu,
         onPlay: (list, i) async {
           setState(() => _tab = AppTab.player);
           await _ctl.load(list, start: i, play: true);
@@ -131,6 +216,7 @@ class _ShellState extends State<Shell> {
       api: widget.api,
       tracks: _tracks,
       loading: _loading,
+      onMenu: _menu,
       onPlay: (list, i) async {
         setState(() => _tab = AppTab.player);
         await _ctl.load(list, start: i, play: true);

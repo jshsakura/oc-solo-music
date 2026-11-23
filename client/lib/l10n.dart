@@ -84,6 +84,11 @@ abstract class S {
   String get like;
   String get saved;
   String get download;
+  String get menuPlay;
+  String get menuUnlike;
+  String get menuRemove;
+  String get removedFromList;
+  String get undo;
   String get sleepTimer;
   String minutesTag(int m);
   String stopsIn(int m);
@@ -297,6 +302,16 @@ class _Ko extends S {
   String get saved => '받아 두었습니다';
   @override
   String get download => '파일 받기';
+  @override
+  String get menuPlay => '재생';
+  @override
+  String get menuUnlike => '좋아요 취소';
+  @override
+  String get menuRemove => '목록에서 빼기';
+  @override
+  String get removedFromList => '목록에서 뺐습니다';
+  @override
+  String get undo => '되돌리기';
   @override
   String get sleepTimer => '잠들기 타이머';
   @override
@@ -613,6 +628,16 @@ class _En extends S {
   String get saved => 'Saved';
   @override
   String get download => 'Download';
+  @override
+  String get menuPlay => 'Play';
+  @override
+  String get menuUnlike => 'Unlike';
+  @override
+  String get menuRemove => 'Remove from list';
+  @override
+  String get removedFromList => 'Removed from the list';
+  @override
+  String get undo => 'Undo';
   @override
   String get sleepTimer => 'Sleep timer';
   @override
@@ -933,6 +958,16 @@ class _Ja extends S {
   String get saved => '保存済み';
   @override
   String get download => 'ファイルを保存';
+  @override
+  String get menuPlay => '再生';
+  @override
+  String get menuUnlike => 'いいね解除';
+  @override
+  String get menuRemove => 'リストから外す';
+  @override
+  String get removedFromList => 'リストから外しました';
+  @override
+  String get undo => '元に戻す';
   @override
   String get sleepTimer => 'スリープタイマー';
   @override

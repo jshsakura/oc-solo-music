@@ -7,6 +7,7 @@ import '../api.dart';
 import '../widgets/artist_tag.dart';
 import '../theme.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/track_menu.dart';
 import '../widgets/sleeve.dart';
 import 'crate_parts.dart';
 
@@ -36,6 +37,7 @@ class ShelfGrid extends StatefulWidget {
     required this.tracks,
     required this.playLabel,
     required this.onPlay,
+    this.onMenu,
     this.animateIn = true,
   });
 
@@ -46,6 +48,7 @@ class ShelfGrid extends StatefulWidget {
   final List<Track> tracks;
   final String Function(String title) playLabel;
   final ValueChanged<int> onPlay;
+  final TrackMenuCallback? onMenu;
 
   @override
   State<ShelfGrid> createState() => _ShelfGridState();
@@ -113,6 +116,9 @@ class _ShelfGridState extends State<ShelfGrid>
                   HapticFeedback.selectionClick();
                   widget.onPlay(i);
                 },
+                onMenu: widget.onMenu == null
+                    ? null
+                    : (at) => widget.onMenu!(widget.tracks[i], at),
               ),
           ],
         ),
@@ -224,8 +230,11 @@ class _ShelfRecord extends StatefulWidget {
     required this.label,
     required this.entrance,
     required this.onTap,
+    this.onMenu,
   });
 
+  /// 길게 누르면 null, 오른쪽 클릭이면 그 좌표를 줍니다.
+  final ValueChanged<Offset?>? onMenu;
   final Track track;
   final Api api;
   final double size;
@@ -333,6 +342,12 @@ class _ShelfRecordState extends State<_ShelfRecord> {
             onTapUp: (_) => _press(false),
             onTapCancel: () => _press(false),
             onTap: widget.onTap,
+            onLongPress: widget.onMenu == null
+                ? null
+                : () => widget.onMenu!(null),
+            onSecondaryTapUp: widget.onMenu == null
+                ? null
+                : (d) => widget.onMenu!(d.globalPosition),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

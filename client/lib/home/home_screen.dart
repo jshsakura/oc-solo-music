@@ -8,6 +8,7 @@ import '../store/local_value.dart';
 import '../widgets/scroll_header.dart';
 import '../theme.dart';
 import '../widgets/skeleton.dart';
+import '../widgets/track_menu.dart';
 import 'crate_math.dart';
 import 'crate_stage.dart';
 import 'jukebox.dart';
@@ -35,12 +36,14 @@ class HomeScreen extends StatefulWidget {
     required this.tracks,
     required this.loading,
     required this.onPlay,
+    this.onMenu,
   });
 
   final Api api;
   final List<Track> tracks;
   final bool loading;
   final void Function(List<Track> list, int index) onPlay;
+  final TrackMenuCallback? onMenu;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -395,6 +398,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         tracks: shown,
         playLabel: s.homeShelfPlay,
         onPlay: _playFrom,
+        onMenu: widget.onMenu,
       );
     }
     if (_jukebox) {
@@ -413,6 +417,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         hint: s.jukeboxHint,
         playLabel: s.homeShelfPlay,
         onPlay: _playFrom,
+        onMenu: widget.onMenu,
       );
     }
     return MouseRegion(
