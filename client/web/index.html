@@ -38,19 +38,29 @@
       transition: opacity .32s ease, visibility .32s ease;
     }
     #splash.gone { opacity: 0; visibility: hidden; }
-    #splash .player { flex: 1; padding: 14px 20px 0; box-sizing: border-box; display: flex; flex-direction: column; }
-    #splash .chips { display: flex; gap: 8px; height: 26px; margin-bottom: 14px; }
+    #splash .player { flex: 1; min-height: 0; padding: 12px 20px 0; box-sizing: border-box; display: flex; flex-direction: column; }
+    #splash .chips { display: flex; gap: 8px; height: 30px; margin-bottom: 14px; flex: none; }
     #splash .chips .sk:first-child { width: 72px; border-radius: 100px; }
     #splash .chips .sk:last-child { flex: 1; border-radius: 100px; }
-    #splash .deck { display: block; width: 100%; max-width: 350px; aspect-ratio: 350 / 342; align-self: center; }
-    #splash .crate { display: flex; align-items: center; justify-content: space-between; height: 64px; margin-top: 18px; }
+    #splash .deck { display: block; flex: none; width: 100%; max-width: 350px; aspect-ratio: 350 / 342; align-self: center; }
+    #splash .crate { display: flex; align-items: center; justify-content: space-between; height: 64px; margin-top: 43px; flex: none; }
     #splash .crate .sk:first-child { width: 32px; height: 64px; border-radius: 0 32px 32px 0; }
     #splash .crate .sk:last-child { width: 40px; height: 48px; border-radius: 6px; }
-    #splash .t1 { height: 20px; width: 60%; border-radius: 8px; margin-top: 22px; }
-    #splash .t2 { height: 12px; width: 32%; border-radius: 6px; margin-top: 10px; }
-    #splash .line { height: 4px; width: 100%; border-radius: 4px; margin-top: 26px; }
-    #splash .grow { flex: 1; }
-    #splash .ctl { height: 56px; border-radius: 100px; margin-bottom: 14px; }
+    #splash .t1 { height: 24px; width: 60%; border-radius: 8px; margin-top: 23px; flex: none; }
+    #splash .t2 { height: 24px; width: 84px; border-radius: 100px; margin-top: 12px; flex: none; }
+    #splash .line { height: 4px; width: 100%; border-radius: 4px; margin-top: 20px; flex: none; }
+    #splash .grow { flex: 1; min-height: 29px; }
+    #splash .ctl { height: 56px; border-radius: 100px; margin-bottom: 14px; flex: none; }
+    /* 앱과 같이 재생 칸의 키가 640 보다 작으면 틈을 줄입니다. 값은 앱 화면을 재서 맞췄습니다. */
+    #splash .cmp { padding-top: 6px; }
+    #splash .cmp .chips { margin-bottom: 8px; }
+    #splash .cmp .t1 { height: 20px; margin-top: 17px; }
+    #splash .cmp .t2 { margin-top: 10px; }
+    #splash .cmp .line { margin-top: 14px; }
+    #splash .cmp .crate { height: 56px; margin-top: 35px; }
+    #splash .cmp .crate .sk:first-child { height: 56px; }
+    #splash .cmp .grow { min-height: 14px; }
+    #splash .cmp .ctl { margin-bottom: 8px; }
     #splash .bar { height: 64px; border-top: 1px solid #E2E0DA; background: #fff; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
     #splash .bar i { width: 24px; height: 24px; border-radius: 7px; }
     #splash .side, #splash .list { display: none; }
@@ -79,11 +89,11 @@
       #splash .side { display: block; width: 223px; border-right: 1px solid #E2E0DA; background: #fff; padding: 34px 12px; box-sizing: border-box; }
       #splash .list { display: block; flex: 1; padding: 24px 24px; }
       #splash .list .title { height: 28px; width: 90px; border-radius: 8px; margin-bottom: 26px; }
-      #splash .player { flex: 0 0 420px; border-left: 1px solid #E2E0DA; padding: 20px; }
+      #splash .player { flex: 0 0 420px; border-left: 1px solid #E2E0DA; padding: 12px 20px 0; }
       #splash .deck { max-width: none; }
       #splash .crate { gap: 12px; height: 80px; }
       #splash .crate .sk:first-child, #splash .crate .sk:last-child { flex: 1; height: 80px; border-radius: 14px; }
-      #splash .grow { flex: 1; margin: 12px 0; border-radius: 16px; }
+      #splash .grow { flex: 1; min-height: 0; margin: 12px 0; border-radius: 16px; }
     }
     @media (prefers-reduced-motion: reduce) {
       #splash { transition: none; }
@@ -121,6 +131,31 @@
     </div>
     <div class="bar"><i></i><i></i><i></i><i></i><i></i></div>
   </div>
+  <script>
+    // 앱처럼 턴테이블을 재생 칸에 남는 높이에 맞춰 줄이고, 폭은 칸 폭과 420 을 넘지 않게 합니다.
+    // 다른 조각의 높이를 뺀 나머지가 턴테이블 몫입니다.
+    (function () {
+      var p = document.querySelector('#splash .player'), d = p.querySelector('.deck');
+      function px(v) { return parseFloat(v) || 0; }
+      function fit() {
+        if (!p.isConnected) { window.removeEventListener('resize', fit); return; }
+        p.classList.toggle('cmp', p.clientHeight < 640);
+        var cs = getComputedStyle(p);
+        var w = p.clientWidth - px(cs.paddingLeft) - px(cs.paddingRight);
+        var h = p.clientHeight - px(cs.paddingTop) - px(cs.paddingBottom);
+        for (var c = p.firstElementChild; c; c = c.nextElementSibling) {
+          if (c === d) continue;
+          var s = getComputedStyle(c);
+          h -= (c.classList.contains('grow') ? px(s.minHeight) : c.offsetHeight) + px(s.marginTop) + px(s.marginBottom);
+        }
+        var dw = Math.max(0, Math.min(w, 420, h * 350 / 342));
+        d.style.width = dw + 'px';
+        d.style.maxWidth = 'none';
+      }
+      fit();
+      window.addEventListener('resize', fit);
+    })();
+  </script>
   <script>
     // 앱이 첫 화면과 글꼴을 다 그리면 soloReady 를 불러 시작 화면을 천천히 걷어 냅니다.
     // 앱이 부르지 못해도 첫 화면 뒤 5초가 지나면 걷습니다.
