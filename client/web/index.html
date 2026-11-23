@@ -39,10 +39,14 @@
     }
     #splash.gone { opacity: 0; visibility: hidden; }
     #splash .player { flex: 1; padding: 14px 20px 0; box-sizing: border-box; display: flex; flex-direction: column; }
-    #splash .head { height: 12px; width: 64px; border-radius: 6px; margin-bottom: 14px; }
-    #splash .deck { width: 100%; max-width: 350px; aspect-ratio: 350 / 342; border-radius: 22px; align-self: center; }
-    #splash .sk.deck { background: linear-gradient(135deg, #2E2E34, #26262B); animation: none; }
-    #splash .t1 { height: 18px; width: 60%; border-radius: 8px; margin-top: 22px; }
+    #splash .chips { display: flex; gap: 8px; height: 26px; margin-bottom: 14px; }
+    #splash .chips .sk:first-child { width: 72px; border-radius: 100px; }
+    #splash .chips .sk:last-child { flex: 1; border-radius: 100px; }
+    #splash .deck { display: block; width: 100%; max-width: 350px; aspect-ratio: 350 / 342; align-self: center; }
+    #splash .crate { display: flex; align-items: center; justify-content: space-between; height: 64px; margin-top: 18px; }
+    #splash .crate .sk:first-child { width: 32px; height: 64px; border-radius: 0 32px 32px 0; }
+    #splash .crate .sk:last-child { width: 40px; height: 48px; border-radius: 6px; }
+    #splash .t1 { height: 20px; width: 60%; border-radius: 8px; margin-top: 22px; }
     #splash .t2 { height: 12px; width: 32%; border-radius: 6px; margin-top: 10px; }
     #splash .line { height: 4px; width: 100%; border-radius: 4px; margin-top: 26px; }
     #splash .grow { flex: 1; }
@@ -50,6 +54,9 @@
     #splash .bar { height: 64px; border-top: 1px solid #E2E0DA; background: #fff; display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
     #splash .bar i { width: 24px; height: 24px; border-radius: 7px; }
     #splash .side, #splash .list { display: none; }
+    @media (min-width: 900px) {
+      #splash .sk-pc { background: linear-gradient(100deg, #EBE9E4 30%, #F5F4F1 50%, #EBE9E4 70%) 0 0 / 300% 100%; animation: solo-shine 1.4s ease-in-out infinite; }
+    }
     #splash .mark {
       font: 800 26px/1 ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif;
       color: #16161A; letter-spacing: -.5px; padding: 0 14px;
@@ -73,6 +80,10 @@
       #splash .list { display: block; flex: 1; padding: 24px 24px; }
       #splash .list .title { height: 28px; width: 90px; border-radius: 8px; margin-bottom: 26px; }
       #splash .player { flex: 0 0 420px; border-left: 1px solid #E2E0DA; padding: 20px; }
+      #splash .deck { max-width: none; }
+      #splash .crate { gap: 12px; height: 80px; }
+      #splash .crate .sk:first-child, #splash .crate .sk:last-child { flex: 1; height: 80px; border-radius: 14px; }
+      #splash .grow { flex: 1; margin: 12px 0; border-radius: 16px; }
     }
     @media (prefers-reduced-motion: reduce) {
       #splash { transition: none; }
@@ -85,12 +96,27 @@
     <div class="side"><div class="mark">solo<b>.</b></div></div>
     <div class="list"><div class="sk title"></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div><div class="row"><i></i><div><s></s><u></u></div></div></div>
     <div class="player">
-      <div class="sk head"></div>
-      <div class="sk deck"></div>
+      <div class="chips"><div class="sk"></div><div class="sk"></div></div>
+      <svg class="deck" viewBox="0 0 350 342" aria-hidden="true">
+        <defs><linearGradient id="sd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E2E34"/><stop offset="1" stop-color="#26262B"/></linearGradient></defs>
+        <rect x=".5" y=".5" width="349" height="341" rx="22" fill="url(#sd)" stroke="#3A3A41"/>
+        <circle cx="150" cy="170" r="146" fill="#fff" fill-opacity=".04"/>
+        <circle cx="150" cy="170" r="136" fill="#121215"/>
+        <g fill="none" stroke="#1E1E23" stroke-width="1.2"><circle cx="150" cy="170" r="122"/><circle cx="150" cy="170" r="106"/><circle cx="150" cy="170" r="90"/><circle cx="150" cy="170" r="74"/></g>
+        <circle cx="150" cy="170" r="46" fill="#3A3A41"/>
+        <circle cx="150" cy="170" r="4" fill="#C9C9CF"/>
+        <path d="M310 34 L318 150 L304 252" fill="none" stroke="#D6D6DB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="292" y="248" width="22" height="30" rx="4" fill="#D6D6DB" transform="rotate(14 303 263)"/>
+        <circle cx="310" cy="34" r="18" fill="#4A4A52"/><circle cx="310" cy="34" r="8" fill="#C9C9CF"/>
+        <circle cx="34" cy="314" r="14" fill="#3A3A41"/><circle cx="34" cy="314" r="5" fill="#FFC23D" fill-opacity=".6"/>
+        <rect x="322" y="250" width="20" height="80" rx="4" fill="#1F1F23"/>
+        <circle cx="300" cy="320" r="3" fill="#FFC23D" fill-opacity=".5"/>
+      </svg>
       <div class="sk t1"></div>
       <div class="sk t2"></div>
       <div class="sk line"></div>
-      <div class="grow"></div>
+      <div class="crate"><div class="sk"></div><div class="sk"></div></div>
+      <div class="grow sk-pc"></div>
       <div class="sk ctl"></div>
     </div>
     <div class="bar"><i></i><i></i><i></i><i></i><i></i></div>
