@@ -19,12 +19,16 @@ class Pressable extends StatefulWidget {
     required this.child,
     this.onTap,
     this.onLongPress,
+    this.onSecondaryTapUp,
     this.scale = .88,
   });
 
   final Widget child;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// 마우스 오른쪽 클릭입니다. 누른 곳의 화면 좌표를 줍니다.
+  final GestureTapUpCallback? onSecondaryTapUp;
   final double scale;
 
   @override
@@ -48,6 +52,7 @@ class _PressableState extends State<Pressable> {
       onTapCancel: () => _set(false),
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
+      onSecondaryTapUp: widget.onSecondaryTapUp,
       child: AnimatedScale(
         scale: _down ? widget.scale : 1,
         duration: reducedMotion(context)

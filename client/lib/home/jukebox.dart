@@ -9,6 +9,7 @@ import '../api.dart';
 import '../theme.dart';
 import '../widgets/artist_tag.dart';
 import '../widgets/sleeve.dart';
+import '../widgets/track_menu.dart';
 import 'crate_parts.dart';
 
 /// 넓은 화면의 홈입니다. 표지를 주크박스처럼 펼쳐 두고 휠, 화살표, 끌기로 돌립니다.
@@ -22,6 +23,7 @@ class Jukebox extends StatefulWidget {
     required this.hint,
     required this.playLabel,
     required this.onPlay,
+    this.onMenu,
   });
 
   final Api api;
@@ -29,6 +31,7 @@ class Jukebox extends StatefulWidget {
   final String hint;
   final String Function(String title) playLabel;
   final ValueChanged<int> onPlay;
+  final TrackMenuCallback? onMenu;
 
   @override
   State<Jukebox> createState() => _JukeboxState();
@@ -233,6 +236,12 @@ class _JukeboxState extends State<Jukebox> with TickerProviderStateMixin {
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
                 onTap: () => center ? widget.onPlay(i) : _goTo(i),
+                onLongPress: widget.onMenu == null
+                    ? null
+                    : () => widget.onMenu!(t, null),
+                onSecondaryTapUp: widget.onMenu == null
+                    ? null
+                    : (d) => widget.onMenu!(t, d.globalPosition),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [

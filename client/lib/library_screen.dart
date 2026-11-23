@@ -8,6 +8,7 @@ import 'theme.dart';
 import 'widgets/motion.dart';
 import 'widgets/skeleton.dart';
 import 'widgets/sleeve.dart';
+import 'widgets/track_menu.dart';
 import 'l10n.dart';
 
 enum Crate { all, liked, suno, uploaded }
@@ -38,6 +39,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onPlay,
     required this.currentId,
     this.playing = false,
+    this.onMenu,
   });
 
   final Api api;
@@ -50,6 +52,9 @@ class LibraryScreen extends StatefulWidget {
 
   /// 지금 곡이 돌고 있는지입니다. 돌고 있으면 그 줄의 판이 천천히 돌고 막대가 들썩입니다.
   final bool playing;
+
+  /// 곡을 길게 누르거나 오른쪽 클릭하면 부릅니다. 없으면 메뉴가 열리지 않습니다.
+  final TrackMenuCallback? onMenu;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -211,6 +216,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               HapticFeedback.lightImpact();
               widget.onPlay(shown, i);
             },
+            onLongPress: widget.onMenu == null
+                ? null
+                : () => widget.onMenu!(t, null),
+            onSecondaryTapUp: widget.onMenu == null
+                ? null
+                : (d) => widget.onMenu!(t, d.globalPosition),
             child: SizedBox(
               height: 72,
               child: Row(
