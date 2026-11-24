@@ -88,157 +88,162 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
             child: child,
           ),
-          child: SafeArea(
-            bottom: false,
-            child: LayoutBuilder(
-              builder: (context, box) {
-                // 높이가 짧은 기기(가로 화면, 작은 폰)에서는 틈과 표지를 줄이고 턴테이블이 남는 높이에 맞춰 작아집니다.
-                final compact = box.maxHeight < 640;
-                final gap = compact ? 8.0 : 16.0;
-                final titleStyle = TextStyle(
-                  fontSize: compact ? 19 : 22,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.2,
-                  color: Palette.ink,
-                );
-                const artistStyle = TextStyle(
-                  fontSize: 14,
-                  color: Palette.secondary,
-                );
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          0,
-                          compact ? 6 : 12,
-                          0,
-                          compact ? 8 : 14,
-                        ),
-                        child: Row(
-                          children: [
-                            _NowPill(
-                              label: S.of(context).nowPlaying,
-                              playing: c.playing,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: _HintChip(
-                                  text: c.error != null
-                                      ? S.of(context).cannotOpen
-                                      : (_hint ?? S.of(context).hintStart),
-                                  bad: c.error != null,
+          // 판이 바뀌면 바탕 색이 천천히 넘어가는데, 그동안 화면 전체가 매 프레임 다시 그려지지 않게
+          // 바탕과 내용을 나눕니다.
+          child: RepaintBoundary(
+            child: SafeArea(
+              bottom: false,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  // 높이가 짧은 기기(가로 화면, 작은 폰)에서는 틈과 표지를 줄이고 턴테이블이 남는 높이에 맞춰 작아집니다.
+                  final compact = box.maxHeight < 640;
+                  final gap = compact ? 8.0 : 16.0;
+                  final titleStyle = TextStyle(
+                    fontSize: compact ? 19 : 22,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: Palette.ink,
+                  );
+                  const artistStyle = TextStyle(
+                    fontSize: 14,
+                    color: Palette.secondary,
+                  );
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            0,
+                            compact ? 6 : 12,
+                            0,
+                            compact ? 8 : 14,
+                          ),
+                          child: Row(
+                            children: [
+                              _NowPill(
+                                label: S.of(context).nowPlaying,
+                                playing: c.playing,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: _HintChip(
+                                    text: c.error != null
+                                        ? S.of(context).cannotOpen
+                                        : (_hint ?? S.of(context).hintStart),
+                                    bad: c.error != null,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      // 위쪽 묶음이 남는 높이를 다 받고, 턴테이블은 그 안에서 필요한 만큼만 커집니다.
-                      // 키 큰 화면에서 남는 자리는 판 더미와 아래 버튼 막대 사이로 갑니다.
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, inner) {
-                            // 턴테이블이 제 크기로 서고도 아래에 가사 칸을 둘 만큼 남으면 그 자리에 가사를 띄웁니다.
-                            // 넓은 화면의 재생 칸처럼 키가 큰 곳에서만 해당되고, 폰에서는 턴테이블이 먼저입니다.
-                            // 가사를 띄울 때 턴테이블은 키우지 않고 제 크기(또는 폭에 맞춘 크기)로 섭니다.
-                            final deckW = min(
-                              inner.maxWidth,
-                              Turntable.size.width,
-                            );
-                            final deckH =
-                                deckW *
-                                Turntable.size.height /
-                                Turntable.size.width;
-                            final lyrics =
-                                (track?.hasLyrics ?? false) &&
-                                inner.maxHeight - deckH - _belowDeck > 140;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Flexible(
-                                  fit: lyrics ? FlexFit.tight : FlexFit.loose,
-                                  flex: lyrics ? 0 : 1,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      maxWidth: Turntable.size.width * 1.2,
-                                    ),
-                                    child: FittedBox(
-                                      child: Turntable(
-                                        key: _turntable,
-                                        ctl: c,
-                                        onHint: _setHint,
-                                        stage: _stage,
+                        // 위쪽 묶음이 남는 높이를 다 받고, 턴테이블은 그 안에서 필요한 만큼만 커집니다.
+                        // 키 큰 화면에서 남는 자리는 판 더미와 아래 버튼 막대 사이로 갑니다.
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, inner) {
+                              // 턴테이블이 제 크기로 서고도 아래에 가사 칸을 둘 만큼 남으면 그 자리에 가사를 띄웁니다.
+                              // 넓은 화면의 재생 칸처럼 키가 큰 곳에서만 해당되고, 폰에서는 턴테이블이 먼저입니다.
+                              // 가사를 띄울 때 턴테이블은 키우지 않고 제 크기(또는 폭에 맞춘 크기)로 섭니다.
+                              final deckW = min(
+                                inner.maxWidth,
+                                Turntable.size.width,
+                              );
+                              final deckH =
+                                  deckW *
+                                  Turntable.size.height /
+                                  Turntable.size.width;
+                              final lyrics =
+                                  (track?.hasLyrics ?? false) &&
+                                  inner.maxHeight - deckH - _belowDeck > 140;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Flexible(
+                                    fit: lyrics ? FlexFit.tight : FlexFit.loose,
+                                    flex: lyrics ? 0 : 1,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: Turntable.size.width * 1.2,
+                                      ),
+                                      child: FittedBox(
+                                        child: Turntable(
+                                          key: _turntable,
+                                          ctl: c,
+                                          onHint: _setHint,
+                                          stage: _stage,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                SizedBox(height: gap + 4),
-                                LoadSwitch(
-                                  loading: waiting,
-                                  alignment: Alignment.topLeft,
-                                  skeleton: _TitleSkeleton(
-                                    titleStyle: titleStyle,
-                                    artistStyle: artistStyle,
+                                  SizedBox(height: gap + 4),
+                                  LoadSwitch(
+                                    loading: waiting,
+                                    alignment: Alignment.topLeft,
+                                    skeleton: _TitleSkeleton(
+                                      titleStyle: titleStyle,
+                                      artistStyle: artistStyle,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Marquee(
+                                          track?.title ?? S.of(context).noTrack,
+                                          style: titleStyle,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: track == null
+                                              ? Text(
+                                                  S.of(context).pickFromLibrary,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: artistStyle,
+                                                )
+                                              : ArtistTag(
+                                                  track.artist,
+                                                  large: true,
+                                                ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Marquee(
-                                        track?.title ?? S.of(context).noTrack,
-                                        style: titleStyle,
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: track == null
-                                            ? Text(
-                                                S.of(context).pickFromLibrary,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: artistStyle,
-                                              )
-                                            : ArtistTag(
-                                                track.artist,
-                                                large: true,
-                                              ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(height: gap),
-                                _SeekBar(ctl: c),
-                                SizedBox(height: compact ? 4 : 10),
-                                CrateRow(
-                                  ctl: c,
-                                  onPrev: _prev,
-                                  onNext: _next,
-                                  edge: 20,
-                                  compact: compact,
-                                  roomy:
-                                      MediaQuery.sizeOf(context).width >= 900,
-                                ),
-                                if (lyrics) ...[
                                   SizedBox(height: gap),
-                                  Expanded(child: LyricsPanel(ctl: c)),
+                                  _SeekBar(ctl: c),
+                                  SizedBox(height: compact ? 4 : 10),
+                                  CrateRow(
+                                    ctl: c,
+                                    onPrev: _prev,
+                                    onNext: _next,
+                                    edge: 20,
+                                    compact: compact,
+                                    roomy:
+                                        MediaQuery.sizeOf(context).width >= 900,
+                                  ),
+                                  if (lyrics) ...[
+                                    SizedBox(height: gap),
+                                    Expanded(child: LyricsPanel(ctl: c)),
+                                  ],
                                 ],
-                              ],
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      SizedBox(height: gap),
-                      ControlRow(ctl: c, onHint: _setHint),
-                      SizedBox(height: compact ? 8 : 14),
-                    ],
-                  ),
-                );
-              },
+                        SizedBox(height: gap),
+                        ControlRow(ctl: c, onHint: _setHint),
+                        SizedBox(height: compact ? 8 : 14),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         );
