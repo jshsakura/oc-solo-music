@@ -81,7 +81,6 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   /// 판을 갈아 끼우는 동안 데크 밖(화면 전체)을 날아다니는 판입니다. 그동안 데크 위의 판은 숨깁니다.
   final _discKey = GlobalKey();
   OverlayEntry? _flying;
-  Rect _stage = Rect.zero;
   bool _discHidden = false;
 
   PlayerController get _c => widget.ctl;
@@ -97,6 +96,17 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     _down = _wasPlaying;
     _speed = _wasPlaying ? normalSpeed : 0;
     _c.addListener(_onCtl);
+  }
+
+  /// 이 화면이 지금 보이는지입니다. 다른 탭에 있으면 꺼져 있습니다.
+  bool get _onScreen => TickerMode.valuesOf(context).enabled;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 판을 바꾸는 도중에 다른 탭으로 가면 날던 판을 바로 거둡니다. 날던 판은 화면 맨 위에
+    // 떠 있어서, 그대로 두면 멈춘 채 홈 화면 위에 남습니다.
+    if (!_onScreen && _flying != null) _swap.stop();
   }
 
   @override
@@ -243,22 +253,16 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     if (_swapping) return;
     final box = _discKey.currentContext?.findRenderObject() as RenderBox?;
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
-    if (_reduce || box == null || overlay == null || !box.attached) {
+    if (_reduce ||
+        !_onScreen ||
+        box == null ||
+        overlay == null ||
+        !box.attached) {
       if (skip) await _c.skip(dir);
       if (mounted) setState(() => _shown = _c.current);
       return;
     }
     _swapping = true;
-    final home = box.localToGlobal(Offset.zero) & box.size;
-    final stageBox =
-        widget.stage?.currentContext?.findRenderObject() as RenderBox?;
-    final stage = stageBox != null && stageBox.attached
-        ? stageBox.localToGlobal(Offset.zero) & stageBox.size
-        : Offset.zero & MediaQuery.sizeOf(context);
-    // 다음 곡이면 지금 판이 왼쪽으로, 이전 곡이면 오른쪽으로 무대 밖까지 나갑니다.
-    final outX = dir > 0 ? stage.left - home.width - 40 : stage.right + 40;
-    final inX = dir > 0 ? stage.right + 40 : stage.left - home.width - 40;
-    _stage = stage;
     final wasPlaying = _c.playing;
     var skipped = !skip;
     try {
@@ -269,7 +273,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       HapticFeedback.lightImpact();
       await Future<void>.delayed(const Duration(milliseconds: 380));
       if (!mounted) return;
-      await _fly(overlay, home, _shown, toX: outX, leaving: true, dir: dir);
+      await _fly(overlay, _shown, leaving: true, dir: dir);
       if (!skipped) {
         skipped = true;
         await _c.skip(dir, play: false);
@@ -279,7 +283,7 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       // 판이 빠진 빈 플래터를 잠깐 보여 준 뒤 새 판을 올립니다.
       await Future<void>.delayed(const Duration(milliseconds: 160));
       if (!mounted) return;
-      await _fly(overlay, home, _shown, toX: inX, leaving: false, dir: dir);
+      await _fly(overlay, _shown, leaving: false, dir: dir);
     } finally {
       // 애니메이션이 어떻게 끝나든 곡은 반드시 넘기고 판과 바늘을 제자리로 돌립니다.
       _flying?.remove();
@@ -300,48 +304,57 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     }
   }
 
-  /// 판 하나를 화면 위로 날립니다. leaving 이면 제자리에서 toX 로, 아니면 toX 에서 제자리로 옵니다.
+  /// 판 하나를 화면 위로 날립니다. leaving 이면 제자리에서 무대 밖으로, 아니면 반대쪽 무대 밖에서 제자리로 옵니다.
+  /// 제자리와 무대는 매 프레임 다시 잽니다. 휴대폰에서 곡을 고르면 재생 탭이 옆에서 밀려 들어오는
+  /// 중에 판이 바뀌어서, 처음 잰 자리로 날리면 판이 엉뚱한 데 내려앉았다가 튑니다.
   Future<void> _fly(
     OverlayState overlay,
-    Rect home,
     Track? track, {
-    required double toX,
     required bool leaving,
     required int dir,
   }) async {
+    if (!_onScreen) return;
     _swap.duration = Duration(milliseconds: leaving ? 520 : 760);
     _flying?.remove();
-    final stage = _stage;
+    var home = _globalRect(_discKey) ?? Rect.zero;
+    var stage =
+        _globalRect(widget.stage) ?? Offset.zero & MediaQuery.sizeOf(context);
+    // 다음 곡이면 지금 판이 왼쪽으로 나가고 새 판이 오른쪽에서 들어옵니다. 이전 곡이면 반대입니다.
+    final toLeft = leaving == dir > 0;
+    // 나는 동안 판은 한 장의 그림으로 굳혀 둡니다. 매 프레임 판을 새로 그리지 않고 옮기기만 해서
+    // 휴대폰에서도 끊기지 않습니다.
+    final disc = RepaintBoundary(
+      child: _Disc(motion: this, track: track, api: _c.api, frozen: true),
+    );
     _flying = OverlayEntry(
-      // 무대 밖은 잘라서, 넓은 화면에서도 판이 재생 칸을 벗어나 다른 화면 위로 지나가지 않습니다.
-      builder: (context) => Positioned.fromRect(
-        rect: stage,
-        child: ClipRect(
-          child: Stack(
-            clipBehavior: Clip.hardEdge,
-            children: [
-              AnimatedBuilder(
-                animation: _swap,
-                builder: (context, child) {
-                  final t = _swap.value;
-                  final e = leaving
-                      ? Curves.easeInCubic.transform(t)
-                      : Curves.easeOutBack.transform(t);
-                  // 나갈 때는 0→1, 들어올 때는 1→0 으로 제자리에서 멀어진 정도입니다.
-                  final away = leaving ? e : 1 - e;
-                  final x = lerpDouble(home.left, toX, away)!;
-                  // 손으로 들어 올린 판처럼 가운데서 위로 둥글게 떴다가 내려옵니다.
-                  final y = home.top - 150 * sin(pi * away.clamp(0.0, 1.0));
-                  final lift = leaving
-                      ? Curves.easeOut.transform((t * 3).clamp(0.0, 1.0))
-                      : 1 -
-                            Curves.easeIn.transform(
-                              ((t - 0.7) / 0.3).clamp(0.0, 1.0),
-                            );
-                  final scale = 1 + 0.18 * lift;
-                  // 한 바퀴 반을 돌며 날아갑니다.
-                  final spin = -dir * 540 * away * pi / 180;
-                  return Positioned(
+      builder: (context) => AnimatedBuilder(
+        animation: _swap,
+        child: disc,
+        builder: (context, child) {
+          home = _globalRect(_discKey) ?? home;
+          stage = _globalRect(widget.stage) ?? stage;
+          final toX = toLeft ? stage.left - home.width - 40 : stage.right + 40;
+          final t = _swap.value;
+          final e = leaving
+              ? Curves.easeInCubic.transform(t)
+              : Curves.easeOutBack.transform(t);
+          // 나갈 때는 0→1, 들어올 때는 1→0 으로 제자리에서 멀어진 정도입니다.
+          final away = leaving ? e : 1 - e;
+          final x = lerpDouble(home.left, toX, away)!;
+          // 손으로 들어 올린 판처럼 가운데서 위로 둥글게 떴다가 내려옵니다.
+          final y = home.top - 150 * sin(pi * away.clamp(0.0, 1.0));
+          final lift = leaving
+              ? Curves.easeOut.transform((t * 3).clamp(0.0, 1.0))
+              : 1 - Curves.easeIn.transform(((t - 0.7) / 0.3).clamp(0.0, 1.0));
+          // 한 바퀴 반을 돌며 날아갑니다.
+          final spin = -dir * 540 * away * pi / 180;
+          // 무대 밖은 잘라서, 넓은 화면에서도 판이 재생 칸을 벗어나 다른 화면 위로 지나가지 않습니다.
+          return Positioned.fromRect(
+            rect: stage,
+            child: ClipRect(
+              child: Stack(
+                children: [
+                  Positioned(
                     left: x - stage.left,
                     top: y - stage.top,
                     width: home.width,
@@ -350,30 +363,17 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
                       child: Transform.rotate(
                         angle: spin,
                         child: Transform.scale(
-                          scale: scale,
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0x3316161A),
-                                  blurRadius: 10 + 26 * lift,
-                                  offset: Offset(0, 4 + 18 * lift),
-                                ),
-                              ],
-                            ),
-                            child: child,
-                          ),
+                          scale: 1 + 0.18 * lift,
+                          child: child,
                         ),
                       ),
                     ),
-                  );
-                },
-                child: _Disc(motion: this, track: track, api: _c.api),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
     overlay.insert(_flying!);
@@ -386,6 +386,12 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
         .catchError((Object _) {});
     _flying?.remove();
     _flying = null;
+  }
+
+  static Rect? _globalRect(GlobalKey? key) {
+    final box = key?.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
   }
 
   double _angleAt(Offset local) =>
@@ -657,11 +663,19 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
 }
 
 class _Disc extends StatelessWidget {
-  const _Disc({required this.motion, required this.track, required this.api});
+  const _Disc({
+    required this.motion,
+    required this.track,
+    required this.api,
+    this.frozen = false,
+  });
 
   final TurntableState motion;
   final Track? track;
   final Api api;
+
+  /// 그 순간의 모습으로 한 번만 그리고 턴테이블 시계를 따라가지 않습니다. 날아가는 판에 씁니다.
+  final bool frozen;
 
   @override
   Widget build(BuildContext context) {
@@ -697,44 +711,48 @@ class _Disc extends StatelessWidget {
         ),
       ),
     );
-    return ValueListenableBuilder<int>(
-      valueListenable: motion._frame,
-      builder: (context, _, _) {
-        final m = motion;
-        final spin = (m._speed.abs() / normalSpeed).clamp(0.0, 1.0);
-        final b = m._reduce ? 0.0 : breath(m._clock) * spin;
-        final turn = m._rot * pi / 180;
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF111113),
-            boxShadow: [
-              BoxShadow(
-                color: Color.fromRGBO(22, 26, 26, 0.22 - 0.05 * b),
-                blurRadius: 22 + 8 * b,
-                offset: Offset(0, 8 + 3 * b),
-              ),
-            ],
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Transform.rotate(angle: turn, child: grooves),
-              Positioned.fill(
-                child: CustomPaint(
-                  painter: _Sheen(
-                    strength: 0.55 + 0.45 * spin,
-                    drift: m._reduce ? 0 : 0.18 * sin(m._clock * 0.7),
-                  ),
+    Widget face(BuildContext context, int _, Widget? _) {
+      final m = motion;
+      final spin = (m._speed.abs() / normalSpeed).clamp(0.0, 1.0);
+      final b = m._reduce ? 0.0 : breath(m._clock) * spin;
+      final turn = m._rot * pi / 180;
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0xFF111113),
+          boxShadow: [
+            BoxShadow(
+              color: Color.fromRGBO(22, 26, 26, 0.22 - 0.05 * b),
+              blurRadius: 22 + 8 * b,
+              offset: Offset(0, 8 + 3 * b),
+            ),
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Transform.rotate(angle: turn, child: grooves),
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _Sheen(
+                  strength: 0.55 + 0.45 * spin,
+                  drift: m._reduce ? 0 : 0.18 * sin(m._clock * 0.7),
                 ),
               ),
-              Transform.rotate(angle: turn, child: label),
-              spindle,
-            ],
-          ),
-        );
-      },
-    );
+            ),
+            Transform.rotate(angle: turn, child: label),
+            spindle,
+          ],
+        ),
+      );
+    }
+
+    return frozen
+        ? face(context, 0, null)
+        : ValueListenableBuilder<int>(
+            valueListenable: motion._frame,
+            builder: face,
+          );
   }
 }
 
