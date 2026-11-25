@@ -190,6 +190,8 @@ async def lifespan(_: FastAPI):
     queues.update(suno=asyncio.Queue())
     restore_jobs()
     tasks = [asyncio.create_task(worker(kind)) for kind in queues]
+    # 수노 곡 정보가 아직 파일에 없는 곡을 뒤에서 천천히 채웁니다. 다 채운 뒤에는 아무것도 묻지 않습니다.
+    tasks.append(asyncio.create_task(asyncio.to_thread(suno_record.fill_from_suno, LIB)))
     yield
     # 서버가 꺼질 때 녹음기도 함께 끕니다. 남겨 두면 다음에 켜질 때 같은 곡을 한 번 더 받습니다.
     for job_id, process in list(running.items()):
@@ -371,12 +373,10 @@ def api_jobs(request: Request) -> list[dict]:
 @app.post("/api/like/{track_id}")
 def api_like(track_id: str) -> dict:
     find_track_file(track_id)
-    with library.connect(LIB) as db:
-        db.execute("UPDATE tracks SET liked = 1 - liked WHERE id=?", (track_id,))
-        row = db.execute("SELECT liked FROM tracks WHERE id=?", (track_id,)).fetchone()
-    if row is None:
+    liked = library.toggle_like(LIB, track_id)
+    if liked is None:
         raise SoloError(404, "track.not_found")
-    return {"liked": bool(row["liked"])}
+    return {"liked": liked}
 
 
 @app.delete("/api/tracks/{track_id}")

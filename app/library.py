@@ -1,4 +1,5 @@
-"""곡 목록은 SQLite 한 파일(solo.db)에 둡니다. 오디오와 표지 이미지만 파일로 남깁니다.
+"""곡 정보의 정본은 오디오 파일 안의 태그입니다(app/tags.py). solo.db 는 그 태그를 빠르게 읽으려고 둔 캐시라서
+지워도 파일만 있으면 목록, 가사, 좋아요가 그대로 돌아옵니다. 곡을 바꾸는 쓰기는 늘 파일에 먼저 합니다.
 
 앱에서 곡을 빼도 파일은 지우지 않습니다. archive/ 폴더로 옮겨 호스트에 남기고 언제든 되살립니다."""
 
@@ -10,6 +11,8 @@ import sqlite3
 import time
 from pathlib import Path
 
+from app import tags as T
+
 
 def report_progress(fraction: float) -> None:
     """녹음기와 다운로더가 진행률을 서버에 알리는 한 줄입니다. 서버는 이 줄을 읽어 화면에 % 로 띄웁니다."""
@@ -17,23 +20,26 @@ def report_progress(fraction: float) -> None:
 
 DB_NAME = "solo.db"
 ARCHIVE = "archive"
-AUDIO = (".mp3", ".m4a")  # 지금은 전부 mp3 로 받고, 예전에 받은 m4a 도 그대로 읽습니다
+AUDIO = (".mp3", ".m4a")  # 지금은 전부 mp3 로 받고, 올린 m4a 는 그대로 둡니다
 SUFFIXES = (*AUDIO, ".jpg")
+
+# 캐시의 모양이 바뀌면 올립니다. 올리면 캐시를 버리고 파일에서 다시 읽습니다.
+CACHE_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS tracks (
     id        TEXT PRIMARY KEY,           -- 오디오 파일 이름(확장자 제외). 올린 곡은 up-<내용 해시>
     title     TEXT NOT NULL,
     artist    TEXT NOT NULL DEFAULT '',
-    tags      TEXT NOT NULL DEFAULT '',
+    tags      TEXT NOT NULL DEFAULT '',   -- 장르. 수노 곡은 스타일
     duration  REAL,
-    image_url TEXT NOT NULL DEFAULT '',
     suno_id   TEXT NOT NULL DEFAULT '',
     liked     INTEGER NOT NULL DEFAULT 0,
     added     INTEGER NOT NULL,
-    archived  INTEGER NOT NULL DEFAULT 0, -- 1 이면 앱 목록에서 뺐고 파일은 archive/ 에 있다
-    source    TEXT NOT NULL DEFAULT '',   -- suno | upload | 빈 값(폴더에 직접 넣은 파일). 예전 youtube 도 남아 있을 수 있다
-    lyrics    TEXT                        -- 수노 가사. NULL 이면 아직 안 받아 봤고, 빈 값이면 연주곡이거나 가사가 없다
+    archived  INTEGER NOT NULL DEFAULT 0, -- 1 이면 파일이 archive/ 에 있다
+    source    TEXT NOT NULL DEFAULT '',   -- suno | upload | 빈 값(폴더에 직접 넣은 파일)
+    lyrics    TEXT NOT NULL DEFAULT '',
+    mtime     INTEGER NOT NULL DEFAULT 0  -- 캐시를 채울 때 파일의 수정 시각(ns). 다르면 파일이 바뀐 것이다
 );
 """
 
@@ -42,16 +48,33 @@ def connect(lib: Path) -> sqlite3.Connection:
     db = sqlite3.connect(lib / DB_NAME, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA journal_mode=WAL")
+    if db.execute("PRAGMA user_version").fetchone()[0] != CACHE_VERSION:
+        _move_db_info_into_files(lib, db)
+        db.execute("DROP TABLE IF EXISTS tracks")
+        db.execute(f"PRAGMA user_version={CACHE_VERSION}")
     db.executescript(SCHEMA)
-    columns = {row["name"] for row in db.execute("PRAGMA table_info(tracks)")}
-    if "archived" not in columns:
-        db.execute("ALTER TABLE tracks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0")
-    if "source" not in columns:
-        db.execute("ALTER TABLE tracks ADD COLUMN source TEXT NOT NULL DEFAULT ''")
-        db.execute("UPDATE tracks SET source='suno' WHERE suno_id != ''")
-    if "lyrics" not in columns:
-        db.execute("ALTER TABLE tracks ADD COLUMN lyrics TEXT")
     return db
+
+
+def _move_db_info_into_files(lib: Path, db: sqlite3.Connection) -> None:
+    """곡 정보를 DB 에만 두던 옛 보관함을 한 번 옮깁니다. 아직 Solo 태그가 없는 파일에 DB 의 정보와 표지를 씁니다."""
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='tracks'").fetchone():
+        return
+    for row in db.execute("SELECT * FROM tracks").fetchall():
+        row = dict(row)
+        path = locate(lib, row["id"])
+        if path is None or T.ADDED in T.read(path):
+            continue
+        suno_id = row.get("suno_id") or ""
+        info = {T.TITLE: row["title"], T.ARTIST: row.get("artist") or "", T.GENRE: row.get("tags") or "",
+                T.SOURCE: row.get("source") or ("suno" if suno_id else ""), T.SUNO_ID: suno_id,
+                T.LIKED: "1" if row.get("liked") else "", T.ADDED: str(int(row["added"]))}
+        if row.get("lyrics"):
+            info[T.LYRICS] = row["lyrics"]
+        if row.get("duration"):
+            info[T.DURATION] = str(row["duration"])
+        cover = path.with_suffix(".jpg")
+        T.write(path, info, cover.read_bytes() if cover.exists() else None)
 
 
 JOBS_SCHEMA = """
@@ -89,6 +112,11 @@ def find_audio(folder: Path, track_id: str) -> Path | None:
     return next((p for ext in AUDIO if (p := folder / f"{track_id}{ext}").is_file()), None)
 
 
+def locate(lib: Path, track_id: str) -> Path | None:
+    """보관함이나 archive/ 에서 곡 파일을 찾습니다."""
+    return find_audio(lib, track_id) or find_audio(lib / ARCHIVE, track_id)
+
+
 def _move(src_dir: Path, dst_dir: Path, track_id: str) -> None:
     dst_dir.mkdir(exist_ok=True)
     for suffix in SUFFIXES:
@@ -100,74 +128,86 @@ def _move(src_dir: Path, dst_dir: Path, track_id: str) -> None:
 def archive(lib: Path, track_id: str) -> None:
     """앱 목록에서 빼고 파일은 archive/ 로 옮깁니다. 같은 이름이 이미 있으면 덮어씁니다."""
     _move(lib, lib / ARCHIVE, track_id)
-    with connect(lib) as db:
-        db.execute("UPDATE tracks SET archived=1 WHERE id=?", (track_id,))
+    sync(lib)
 
 
 def restore(lib: Path, track_id: str) -> None:
     _move(lib / ARCHIVE, lib, track_id)
+    sync(lib)
+
+
+def save(lib: Path, track_id: str, info: dict[str, str], cover: bytes | None = None) -> None:
+    """곡 정보를 파일에 쓰고 캐시를 맞춥니다. info 에 없는 칸은 파일에 있던 그대로 둡니다."""
+    path = locate(lib, track_id)
+    if path is None:
+        return
+    T.write(path, info, cover)
     with connect(lib) as db:
-        db.execute("UPDATE tracks SET archived=0 WHERE id=?", (track_id,))
+        _cache(db, path, archived=path.parent != lib)
 
 
 def upsert(lib: Path, track_id: str, *, title: str, artist: str = "", tags: str = "",
-           duration: float | None = None, image_url: str = "", suno_id: str = "",
-           source: str = "suno", lyrics: str | None = None) -> None:
-    """받아 둔 곡을 넣습니다. 이미 있으면 좋아요와 추가 시각은 그대로 두고, 가사를 안 주면 받아 둔 가사도 그대로 둡니다."""
-    with connect(lib) as db:
-        db.execute(
-            """INSERT INTO tracks (id, title, artist, tags, duration, image_url, suno_id, source, lyrics, added)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT(id) DO UPDATE SET title=excluded.title, artist=excluded.artist,
-                 tags=excluded.tags, duration=excluded.duration, image_url=excluded.image_url,
-                 suno_id=excluded.suno_id, source=excluded.source,
-                 lyrics=COALESCE(excluded.lyrics, tracks.lyrics)""",
-            (track_id, title, artist, tags, duration, image_url, suno_id, source, lyrics, int(time.time())))
+           duration: float | None = None, suno_id: str = "", source: str = "suno",
+           lyrics: str | None = None) -> None:
+    """곡 정보를 씁니다. 좋아요와 추가 시각은 파일에 있던 그대로 두고, 가사를 안 주면 있던 가사도 그대로 둡니다."""
+    info = {T.TITLE: title, T.ARTIST: artist, T.GENRE: tags, T.SUNO_ID: suno_id, T.SOURCE: source}
+    if lyrics is not None:
+        info[T.LYRICS] = lyrics
+    if duration:
+        info[T.DURATION] = str(duration)
+    save(lib, track_id, info)
 
 
 def set_lyrics(lib: Path, track_id: str, lyrics: str) -> None:
+    save(lib, track_id, {T.LYRICS: lyrics})
+
+
+def toggle_like(lib: Path, track_id: str) -> bool | None:
     with connect(lib) as db:
-        db.execute("UPDATE tracks SET lyrics=? WHERE id=?", (lyrics, track_id))
+        row = db.execute("SELECT liked FROM tracks WHERE id=?", (track_id,)).fetchone()
+    if row is None:
+        return None
+    liked = not row["liked"]
+    save(lib, track_id, {T.LIKED: "1" if liked else ""})
+    return liked
 
 
 def lyrics(lib: Path, track_id: str) -> str:
     with connect(lib) as db:
         row = db.execute("SELECT lyrics FROM tracks WHERE id=?", (track_id,)).fetchone()
-    return (row["lyrics"] if row else None) or ""
+    return row["lyrics"] if row else ""
 
 
 def sync(lib: Path) -> None:
-    """폴더와 DB 를 맞춥니다. 처음 한 번은 옛 JSON 사이드카와 좋아요 파일도 가져옵니다."""
-    files = audio_files(lib)
-    shelved = set(audio_files(lib / ARCHIVE))
-    likes_file = lib / ".likes.json"
-    old_likes: set[str] = set()
-    if likes_file.exists():
-        try:
-            old_likes = set(json.loads(likes_file.read_text()))
-        except (OSError, ValueError):
-            pass
+    """폴더를 보고 캐시를 맞춥니다. 새로 생기거나 바뀐 파일만 태그를 다시 읽습니다."""
+    places = {stem: (path, 1) for stem, path in audio_files(lib / ARCHIVE).items()}
+    places |= {stem: (path, 0) for stem, path in audio_files(lib).items()}
     with connect(lib) as db:
-        rows = {r["id"]: r["archived"] for r in db.execute("SELECT id, archived FROM tracks")}
-        known = set(rows)
-        # 손으로 폴더를 오가며 옮긴 파일도 실제 위치를 따릅니다.
-        db.executemany("UPDATE tracks SET archived=0 WHERE id=?", [(i,) for i, a in rows.items() if a and i in files])
-        db.executemany("UPDATE tracks SET archived=1 WHERE id=?", [(i,) for i, a in rows.items() if not a and i not in files and i in shelved])
-        for stem, mp3 in files.items():
-            if stem in known:
-                continue
-            side = mp3.with_suffix(".json")
-            try:
-                info = json.loads(side.read_text())
-            except (OSError, ValueError):
-                info = {}
-            db.execute(
-                "INSERT INTO tracks (id, title, artist, tags, duration, image_url, suno_id, liked, added)"
-                " VALUES (?,?,?,?,?,?,?,?,?)",
-                (stem, info.get("title") or stem.replace("-", " ").title(), info.get("artist") or "",
-                 info.get("tags") or "", info.get("duration"), info.get("image_url") or "",
-                 info.get("id") or "", int(stem in old_likes), int(mp3.stat().st_mtime)))
-            side.unlink(missing_ok=True)
-        gone = known - files.keys() - shelved
-        db.executemany("DELETE FROM tracks WHERE id=?", [(g,) for g in gone])
-    likes_file.unlink(missing_ok=True)
+        cached = {r["id"]: (r["mtime"], r["archived"]) for r in db.execute("SELECT id, mtime, archived FROM tracks")}
+        for stem, (path, archived) in places.items():
+            if cached.get(stem) != (path.stat().st_mtime_ns, archived):
+                _cache(db, path, archived=bool(archived))
+        db.executemany("DELETE FROM tracks WHERE id=?", [(gone,) for gone in cached.keys() - places.keys()])
+
+
+def _cache(db: sqlite3.Connection, path: Path, *, archived: bool) -> None:
+    """파일 하나의 태그를 캐시에 옮깁니다. 처음 보는 파일이면 들어온 시각을 파일에 적고, 표지가 파일 안에만 있으면 꺼내 둡니다."""
+    info = T.read(path)
+    if T.ADDED not in info:
+        T.write(path, {T.ADDED: str(int(path.stat().st_mtime))})
+        info = T.read(path)
+    cover = path.with_suffix(".jpg")
+    if not cover.exists() and (embedded := T.read_cover(path)):
+        cover.write_bytes(embedded)
+    try:
+        duration = float(info.get(T.DURATION) or 0) or None
+    except ValueError:
+        duration = None
+    db.execute(
+        """INSERT OR REPLACE INTO tracks
+           (id, title, artist, tags, duration, suno_id, liked, added, archived, source, lyrics, mtime)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (path.stem, info.get(T.TITLE) or path.stem.replace("-", " ").title(), info.get(T.ARTIST, ""),
+         info.get(T.GENRE, ""), duration, info.get(T.SUNO_ID, ""), int(info.get(T.LIKED) == "1"),
+         int(info.get(T.ADDED) or path.stat().st_mtime), int(archived), info.get(T.SOURCE, ""),
+         info.get(T.LYRICS, ""), path.stat().st_mtime_ns))
