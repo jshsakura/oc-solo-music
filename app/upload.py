@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import library
+from . import library, tags
 
 TYPES = (".mp3", ".m4a", ".flac", ".wav", ".ogg", ".opus", ".aac")
 KEEP_AS_IS = {".mp3": "mp3", ".m4a": "aac"}  # 확장자 → 그대로 둘 때 있어야 하는 코덱
@@ -45,8 +45,6 @@ def add_file(lib: Path, src: Path, track_id: str, fallback_title: str) -> dict:
     audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
     if audio is None:
         raise Rejected("upload.not_audio")
-    fmt = info.get("format") or {}
-    tags = {k.lower(): str(v).strip() for k, v in (fmt.get("tags") or {}).items()}
 
     suffix = src.suffix.lower()
     keep = KEEP_AS_IS.get(suffix) == audio.get("codec_name")
@@ -69,12 +67,10 @@ def add_file(lib: Path, src: Path, track_id: str, fallback_title: str) -> dict:
     finally:
         part.unlink(missing_ok=True)
 
-    try:
-        duration = float(fmt.get("duration") or audio.get("duration") or 0) or None
-    except ValueError:
-        duration = None
-    title = tags.get("title") or fallback_title.strip() or track_id
-    track = {"title": title[:200], "artist": tags.get("artist", "")[:200], "tags": tags.get("album", "")[:200],
-             "duration": duration}
-    library.upsert(lib, track_id, **track, source="upload")
-    return {"id": track_id, **track}
+    # 파일에 든 태그(장르, 가사, 앨범 등)는 그대로 두고 Solo 가 쓰는 칸만 더합니다. 표지도 파일 안에 넣습니다.
+    final = lib / f"{track_id}{ext}"
+    cover = lib / f"{track_id}.jpg"
+    title = tags.read(final).get(tags.TITLE) or fallback_title.strip() or track_id
+    library.save(lib, track_id, {tags.TITLE: title[:200], tags.SOURCE: "upload"},
+                 cover.read_bytes() if cover.exists() else None)
+    return {"id": track_id, "title": title[:200]}

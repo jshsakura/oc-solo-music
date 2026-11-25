@@ -3,3 +3,4 @@ uvicorn[standard]>=0.30
 playwright>=1.50
 numpy>=2
 pyjwt[crypto]>=2.9
+mutagen>=1.47

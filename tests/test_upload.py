@@ -5,6 +5,8 @@ import subprocess
 
 import pytest
 
+from tests.test_file_library import decoded_md5
+
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg 가 없습니다")
 
 
@@ -40,7 +42,7 @@ def test_mp3_is_kept_as_is_and_file_name_is_the_fallback_title(lib, client, tmp_
     r = client.put("/api/upload", params={"name": "Night Drive.mp3"}, content=body)
 
     track_id = r.json()["id"]
-    assert (lib / f"{track_id}.mp3").read_bytes() == body
+    assert decoded_md5(lib / f"{track_id}.mp3") == decoded_md5(tmp_path / "_in" / "src.mp3")
     assert next(t for t in client.get("/api/tracks").json() if t["id"] == track_id)["title"] == "Night Drive"
 
 

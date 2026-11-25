@@ -14,7 +14,11 @@ def no_suno_lookup(monkeypatch):
     def offline(url, cover):
         raise OSError("offline in tests")
 
+    def no_clip(clip_id):
+        raise OSError("offline in tests")
+
     monkeypatch.setattr(app.suno_record, "peek_clip", offline)
+    monkeypatch.setattr(app.suno_record, "fetch_clip", no_clip)
 
 
 @pytest.fixture

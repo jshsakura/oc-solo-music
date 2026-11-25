@@ -14,7 +14,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,7 +21,7 @@ from urllib.parse import urlsplit
 
 import numpy as np
 
-from . import library
+from . import library, tags
 from .messages import msg, pick_language, render, to_wire
 
 SAMPLE_RATE = 48000
@@ -181,32 +180,45 @@ def lyrics_of(clip: dict) -> str:
     return str(meta.get("prompt") or "").strip()
 
 
-def backfill_lyrics(lib: Path) -> int:
-    """가사를 아직 안 받아 본 수노 곡만 한 곡씩 천천히 물어 채웁니다. 채운 곡 수를 돌려줍니다."""
+# 수노 곡 정보 가운데 곡과 상관없는 것(화면 꾸밈, 그때그때 바뀌는 숫자, 계정 정보)은 파일에 넣지 않습니다.
+_CLIP_NOISE = {"action_config", "avatar_image_url", "user_id", "is_liked", "is_following_creator",
+               "play_count", "upvote_count", "comment_count", "flag_count"}
+_META_NOISE = {"model_badges", "image_config"}
+
+
+def clip_info(clip_id: str, clip: dict) -> dict[str, str]:
+    """수노 곡 정보를 파일 태그로 옮깁니다. 스타일은 장르 칸에, 가사는 가사 칸에 두어 다른 플레이어도 보게 하고,
+    나머지는 원본 그대로 SUNO_CLIP 에 넣어 나중에 같은 결의 곡을 다시 만들 재료로 남깁니다."""
+    meta = clip.get("metadata") or {}
+    created = str(clip.get("created_at") or "")
+    raw = {k: v for k, v in clip.items() if k not in _CLIP_NOISE}
+    raw["metadata"] = {k: v for k, v in meta.items() if k not in _META_NOISE}
+    return {
+        tags.TITLE: (clip.get("title") or "")[:200], tags.ARTIST: clip.get("display_name") or "",
+        tags.GENRE: meta.get("tags") or "", tags.LYRICS: lyrics_of(clip), tags.YEAR: created[:4],
+        tags.SOURCE: "suno", tags.SUNO_ID: clip_id, tags.SUNO_URL: song_url(clip_id),
+        tags.SUNO_MODEL: clip.get("model_name") or clip.get("major_model_version") or "",
+        tags.SUNO_CREATED: created, tags.SUNO_CLIP: json.dumps(raw, ensure_ascii=False),
+    }
+
+
+def fill_from_suno(lib: Path) -> int:
+    """수노 곡인데 파일에 수노 곡 정보가 아직 없는 곡만 한 곡씩 천천히 물어 채웁니다. 채운 곡 수를 돌려줍니다."""
+    library.sync(lib)
     with library.connect(lib) as db:
-        rows = db.execute("SELECT id, suno_id FROM tracks WHERE suno_id != '' AND lyrics IS NULL").fetchall()
+        ids = [(r["id"], r["suno_id"]) for r in db.execute("SELECT id, suno_id FROM tracks WHERE suno_id != ''")]
+    todo = [(i, s) for i, s in ids if (p := library.locate(lib, i)) and tags.SUNO_CLIP not in tags.read(p)]
     filled = 0
-    for n, row in enumerate(rows):
+    for n, (track_id, clip_id) in enumerate(todo):
         if n:
             time.sleep(0.4 + 0.5 * (n % 2))  # 사이트에 몰아서 묻지 않도록 요청 사이를 띄웁니다
         try:
-            text = lyrics_of(fetch_clip(row["suno_id"]))
+            info = clip_info(clip_id, fetch_clip(clip_id))
         except (OSError, ValueError):
             continue
-        library.set_lyrics(lib, row["id"], text)
+        library.save(lib, track_id, info)
         filled += 1
     return filled
-
-
-def write_sidecar(target: Path, clip_id: str, clip: dict, duration: float) -> None:
-    """플레이어가 제목·커버·태그를 보여줄 수 있게 곡 정보를 solo.db 에 남기고 표지를 받아 둡니다.
-    서버가 재시작돼도 정보가 빠지지 않도록 녹음기가 끝까지 직접 저장합니다."""
-    library.upsert(
-        target.parent, target.stem, title=clip.get("title") or "", artist=clip.get("display_name") or "",
-        tags=(clip.get("metadata") or {}).get("tags") or "", duration=duration,
-        image_url=clip.get("image_large_url") or clip.get("image_url") or "", suno_id=clip_id,
-        lyrics=lyrics_of(clip))
-    save_cover(target, clip.get("image_large_url") or clip.get("image_url") or "")
 
 
 def save_cover(target: Path, url: str) -> None:
@@ -256,7 +268,8 @@ async def capture_playback(page, webm: Path, expected: float) -> dict:
 
 
 def finish_recording(webm: Path, target: Path, expected: float, stalls: int,
-                     known: list[float] | None = None) -> tuple[Result, list[float]]:
+                     known: list[float] | None = None, info: dict[str, str] | None = None,
+                     cover: bytes | None = None) -> tuple[Result, list[float]]:
     """검사를 통과한 녹음만 최종 경로로 옮깁니다. 이번 녹음에서 찾은 무음 자리도 돌려줍니다.
     known 은 앞 녹음의 무음 자리이고, 같은 자리의 무음은 곡의 일부로 봐서 통과시킵니다."""
     mp3 = webm.with_suffix(".mp3")
@@ -270,6 +283,8 @@ def finish_recording(webm: Path, target: Path, expected: float, stalls: int,
                "dropouts": len(dropouts), "stalls": stalls, "clicks": clicks}
     if not duration_matches(actual, expected) or dropouts or stalls:
         return Result(target.name, "failed", msg("suno.take_rejected", **numbers)), found
+    if info:  # 곡 정보는 보관함에 놓기 전에 파일 안에 씁니다. 놓인 뒤에 고치면 서버의 쓰기와 엇갈립니다
+        tags.write(mp3, info, cover)
     os.replace(mp3, target)
     return Result(target.name, "saved", msg("suno.take", **numbers)), found
 
@@ -291,6 +306,10 @@ async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
             # 앞서 녹음이 중간에 끊겨 표지만 빠진 곡이면 표지를 채워 둡니다.
             save_cover(target, clip.get("image_large_url") or clip.get("image_url") or "")
             return Result(target.name, "skipped", msg("suno.exists"))
+        save_cover(target, clip.get("image_large_url") or clip.get("image_url") or "")
+        cover_file = target.with_suffix(".jpg")
+        cover = cover_file.read_bytes() if cover_file.exists() else None
+        info = clip_info(clip_id, clip) | {tags.DURATION: str(expected), tags.ADDED: str(int(time.time()))}
         known: list[float] | None = None
         for attempt in range(TAKE_ATTEMPTS):
             if attempt:  # 끊긴 녹음은 버리고 곡 화면을 새로 열어 처음부터 다시 녹음합니다
@@ -299,15 +318,13 @@ async def record_one(browser, url: str, out_dir: Path, force: bool) -> Result:
                 await page.wait_for_timeout(PAGE_SETTLE_MS)
             with tempfile.TemporaryDirectory(dir=out_dir, prefix=".recording-") as tmp:
                 webm = Path(tmp) / "capture.webm"
-                info = await capture_playback(page, webm, expected)
-                if "error" in info:
-                    return Result(target.name, "failed", info["error"])
-                result, known = finish_recording(webm, target, expected, info["stalls"], known)
+                take = await capture_playback(page, webm, expected)
+                if "error" in take:
+                    return Result(target.name, "failed", take["error"])
+                result, known = finish_recording(webm, target, expected, take["stalls"], known, info, cover)
             if result.ok:
                 break
             await page.close()
-        if target.exists():
-            write_sidecar(target, clip_id, clip, expected)
         return result
     finally:
         await context.close()
@@ -344,10 +361,10 @@ def main() -> int:
     parser.add_argument("-j", "--jobs", type=int, default=1, help="songs to record at once (default 1)")
     parser.add_argument("--force", action="store_true", help="record again even if the file exists")
     parser.add_argument("--codes", action="store_true", help="print message codes for the server instead of text")
-    parser.add_argument("--backfill-lyrics", action="store_true", help="fetch lyrics for saved songs that have none yet")
+    parser.add_argument("--fill-from-suno", action="store_true", help="write Suno song info into files that lack it")
     args = parser.parse_args()
-    if args.backfill_lyrics:
-        print(f"lyrics checked: {backfill_lyrics(args.out)}")
+    if args.fill_from_suno:
+        print(f"filled from suno: {fill_from_suno(args.out)}")
         return 0
     if not args.urls:
         parser.error("give at least one url")

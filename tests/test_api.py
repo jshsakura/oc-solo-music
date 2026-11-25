@@ -112,17 +112,6 @@ def test_add_rejects_non_suno_urls(client):
     assert r.status_code == 400
 
 
-def test_old_json_sidecar_and_likes_are_imported_once(lib, client):
-    add_song(lib, "a")
-    (lib / "a.json").write_text('{"title": "From Json", "artist": "Me"}')
-    (lib / ".likes.json").write_text('["a"]')
-
-    track = client.get("/api/tracks").json()[0]
-
-    assert (track["title"], track["liked"]) == ("From Json", True)
-    assert not (lib / "a.json").exists() and not (lib / ".likes.json").exists()
-
-
 def test_password_guards_everything_but_health(lib, monkeypatch):
     with make_client(lib, monkeypatch, password="hunter2") as c:
         good = "Basic " + base64.b64encode(b"any:hunter2").decode()
