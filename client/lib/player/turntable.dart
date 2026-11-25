@@ -75,6 +75,9 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
 
   bool _swapping = false;
 
+  /// 판을 바꾸는 동안 더 누른 앞뒤 칸 수입니다. 다음 판을 고를 때 한꺼번에 넘깁니다.
+  int _queued = 0;
+
   /// 판을 갈아 끼우는 동안 바늘을 받침으로 치워 둡니다.
   bool _armAway = false;
 
@@ -244,7 +247,11 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
   /// 판을 갈아 끼웁니다. 지금 판이 들려 올라 화면 끝까지 날아가고,
   /// 새 판이 반대쪽 화면 끝에서 날아와 플래터에 툭 내려앉습니다.
   Future<void> swap(int dir) async {
-    if (_swapping || _c.queue.isEmpty) return;
+    if (_c.queue.isEmpty) return;
+    if (_swapping) {
+      _queued += dir;
+      return;
+    }
     await _exchange(dir, skip: true);
   }
 
@@ -264,7 +271,8 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
     }
     _swapping = true;
     final wasPlaying = _c.playing;
-    var skipped = !skip;
+    var turn = dir;
+    var steps = skip ? dir : 0;
     try {
       // 바늘을 먼저 들어 받침으로 치우고, 판을 바꾼 뒤 다시 올립니다.
       _c.pause();
@@ -272,23 +280,35 @@ class TurntableState extends State<Turntable> with TickerProviderStateMixin {
       _wake();
       HapticFeedback.lightImpact();
       await Future<void>.delayed(const Duration(milliseconds: 380));
-      if (!mounted) return;
-      await _fly(overlay, _shown, leaving: true, dir: dir);
-      if (!skipped) {
-        skipped = true;
-        await _c.skip(dir, play: false);
-      }
-      if (!mounted) return;
-      _shown = _c.current;
-      // 판이 빠진 빈 플래터를 잠깐 보여 준 뒤 새 판을 올립니다.
-      await Future<void>.delayed(const Duration(milliseconds: 160));
-      if (!mounted) return;
-      await _fly(overlay, _shown, leaving: false, dir: dir);
+      // 판이 오가는 동안 더 누르면 그만큼 이어서 넘깁니다. 판이 나가는 동안 누른 것은 이번에 같이 넘기고,
+      // 새 판이 들어오는 동안 누른 것은 그 판이 내려앉자마자 한 번 더 바꿉니다.
+      do {
+        if (!mounted) return;
+        await _fly(overlay, _shown, leaving: true, dir: turn);
+        steps += _queued;
+        _queued = 0;
+        if (steps != 0) {
+          final n = steps;
+          steps = 0;
+          await _c.skip(n, play: false);
+        }
+        if (!mounted) return;
+        _shown = _c.current;
+        // 판이 빠진 빈 플래터를 잠깐 보여 준 뒤 새 판을 올립니다.
+        await Future<void>.delayed(const Duration(milliseconds: 160));
+        if (!mounted) return;
+        await _fly(overlay, _shown, leaving: false, dir: turn);
+        steps = _queued;
+        _queued = 0;
+        turn = steps.sign;
+      } while (steps != 0 && _onScreen);
     } finally {
-      // 애니메이션이 어떻게 끝나든 곡은 반드시 넘기고 판과 바늘을 제자리로 돌립니다.
+      // 애니메이션이 어떻게 끝나든 누른 만큼은 반드시 넘기고 판과 바늘을 제자리로 돌립니다.
       _flying?.remove();
       _flying = null;
-      if (!skipped) unawaited(_c.skip(dir, play: false));
+      steps += _queued;
+      _queued = 0;
+      if (steps != 0) unawaited(_c.skip(steps, play: false));
       _swapping = false;
       _armAway = false;
       _trackId = _c.current?.id;

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:solo/api.dart';
@@ -89,5 +91,66 @@ void main() {
     await t.pump(const Duration(seconds: 3));
     await swapping;
     expect(ctl.current!.id, 'b');
+  });
+
+  Future<void> run(WidgetTester t, int secs) async {
+    for (var i = 0; i < secs * 20; i++) {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+  }
+
+  Future<GlobalKey<TurntableState>> shownDeck(
+    WidgetTester t,
+    _FakeCtl ctl,
+  ) async {
+    final deck = GlobalKey<TurntableState>();
+    await t.pumpWidget(_host(ctl, shown: ValueNotifier(true), key: deck));
+    return deck;
+  }
+
+  testWidgets('taps made while the record is leaving skip that many songs', (
+    t,
+  ) async {
+    final ctl = _FakeCtl();
+    final deck = await shownDeck(t, ctl);
+
+    final swapping = deck.currentState!.swap(1);
+    await t.pump(const Duration(milliseconds: 100));
+    unawaited(deck.currentState!.swap(1));
+    await run(t, 4);
+    await swapping;
+
+    expect(ctl.current!.id, 'c');
+  });
+
+  testWidgets('a tap made after the new record arrived swaps once more', (
+    t,
+  ) async {
+    final ctl = _FakeCtl();
+    final deck = await shownDeck(t, ctl);
+
+    final swapping = deck.currentState!.swap(1);
+    while (ctl.current!.id != 'b') {
+      await t.pump(const Duration(milliseconds: 50));
+    }
+    unawaited(deck.currentState!.swap(1));
+    await run(t, 6);
+    await swapping;
+
+    expect(ctl.current!.id, 'c');
+    expect(_discs, findsOneWidget);
+  });
+
+  testWidgets('next then previous during a swap cancel out', (t) async {
+    final ctl = _FakeCtl();
+    final deck = await shownDeck(t, ctl);
+
+    final swapping = deck.currentState!.swap(1);
+    await t.pump(const Duration(milliseconds: 100));
+    unawaited(deck.currentState!.swap(-1));
+    await run(t, 4);
+    await swapping;
+
+    expect(ctl.current!.id, 'a');
   });
 }
