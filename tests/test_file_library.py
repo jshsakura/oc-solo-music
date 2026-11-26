@@ -130,3 +130,21 @@ def test_genre_text_comes_back_exactly_even_where_id3_would_reinterpret_it(tmp_p
 
     assert tags.read(song)[tags.GENRE] == style
     assert tags.GENRE_TEXT not in tags.read(song)
+
+
+def test_song_info_comes_from_the_file_for_any_source(lib, client):
+    add_song(lib, "a")
+    tags.write(lib / "a.mp3", {tags.TITLE: "Made", tags.GENRE: "(80s) synthwave\nslow", tags.LYRICS: "la",
+                               tags.SUNO_URL: "https://suno.com/song/x", tags.SUNO_MODEL: "chirp-v5",
+                               tags.ADDED: "1700000000"})
+    add_song(lib, "b")
+    tags.write(lib / "b.mp3", {tags.TITLE: "Mine", tags.ALBUM: "Home"})
+
+    made = client.get("/api/info/a").json()
+    mine = client.get("/api/info/b").json()
+
+    assert (made["genre"], made["lyrics"], made["suno_model"], made["added"]) == (
+        "(80s) synthwave\nslow", "la", "chirp-v5", 1700000000)
+    assert (mine["album"], mine["suno_url"], mine["genre"]) == ("Home", "", "")
+    assert client.get("/api/info/nope").status_code == 404
+    assert client.get("/api/info/..%2Fsolo").status_code == 404

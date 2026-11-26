@@ -23,7 +23,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import auth, library, messages, suno_record, upload
+from . import auth, library, messages, suno_record, tags, upload
 from .messages import msg
 from .serving import ranged_file
 
@@ -263,6 +263,23 @@ def api_lyrics(track_id: str):
     """재생 화면 옆에 띄울 가사입니다. 목록을 가볍게 두려고 곡마다 따로 받습니다."""
     find_track_file(track_id)
     return {"lyrics": library.lyrics(LIB, track_id)}
+
+
+_INFO_FIELDS = {
+    "title": tags.TITLE, "artist": tags.ARTIST, "album": tags.ALBUM, "year": tags.YEAR, "genre": tags.GENRE,
+    "lyrics": tags.LYRICS, "source": tags.SOURCE, "suno_url": tags.SUNO_URL, "suno_model": tags.SUNO_MODEL,
+    "suno_created": tags.SUNO_CREATED,
+}
+
+
+@app.get("/api/info/{track_id}")
+def api_info(track_id: str):
+    """곡 정보 화면에 띄울 내용입니다. 정본인 파일 태그에서 바로 읽습니다."""
+    found = tags.read(find_track_file(track_id))
+    info = {name: found.get(key, "") for name, key in _INFO_FIELDS.items()}
+    info["duration"] = float(found.get(tags.DURATION) or 0)
+    info["added"] = int(found.get(tags.ADDED) or 0)
+    return info
 
 
 @app.get("/api/cover/{track_id}")

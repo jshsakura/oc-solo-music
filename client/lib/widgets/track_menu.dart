@@ -6,7 +6,7 @@ import '../theme.dart';
 import 'sleeve.dart';
 
 /// 곡 하나를 길게 누르거나 오른쪽 클릭하면 고를 수 있는 동작입니다.
-enum TrackAction { play, like, download, remove }
+enum TrackAction { play, info, like, download, remove }
 
 /// 화면이 곡의 메뉴를 열어 달라고 위로 알리는 콜백입니다. [at] 이 있으면 마우스 클릭 위치입니다.
 typedef TrackMenuCallback = void Function(Track track, Offset? at);
@@ -22,6 +22,7 @@ Future<TrackAction?> showTrackMenu(
   final s = S.of(context);
   final items = [
     (TrackAction.play, Icons.play_arrow_rounded, s.menuPlay),
+    (TrackAction.info, Icons.info_outline_rounded, s.menuInfo),
     (
       TrackAction.like,
       track.liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,

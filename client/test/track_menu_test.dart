@@ -116,12 +116,12 @@ void main() {
     expect(find.text('Remove from list'), findsNothing);
   });
 
-  testWidgets('a long press opens the sheet with the four actions', (t) async {
+  testWidgets('a long press opens the sheet with the five actions', (t) async {
     await open(t);
     await t.longPress(find.text('Song a'));
     await t.pumpAndSettle();
     expect(played, isEmpty);
-    for (final label in ['Play', 'Like', 'Download', 'Remove from list']) {
+    for (final label in ['Play', 'Song info', 'Like', 'Download', 'Remove from list']) {
       expect(find.text(label), findsOneWidget);
     }
   });
@@ -175,7 +175,7 @@ void main() {
     await t.pumpAndSettle();
 
     expect(played, isEmpty);
-    expect(find.byType(PopupMenuItem<TrackAction>), findsNWidgets(4));
+    expect(find.byType(PopupMenuItem<TrackAction>), findsNWidgets(5));
     expect(find.text('Remove from list'), findsOneWidget);
   });
 }

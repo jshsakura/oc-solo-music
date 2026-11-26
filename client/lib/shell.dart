@@ -15,6 +15,7 @@ import 'theme.dart';
 import 'widgets/tab_swap.dart';
 import 'widgets/motion.dart';
 import 'widgets/motion_math.dart';
+import 'widgets/track_info_sheet.dart';
 import 'widgets/track_menu.dart';
 
 enum AppTab { home, library, player, add, connect }
@@ -139,6 +140,8 @@ class _ShellState extends State<Shell> {
       switch (action) {
         case TrackAction.play:
           await _playTrack(t);
+        case TrackAction.info:
+          await showTrackInfo(context, track: t, api: widget.api);
         case TrackAction.like:
           if (_ctl.current?.id == t.id) {
             // 재생 중인 곡은 컨트롤러가 대기열을 고치고 _syncLikes 가 목록에 반영합니다.
