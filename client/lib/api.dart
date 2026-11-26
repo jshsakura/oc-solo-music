@@ -56,6 +56,46 @@ class Track {
   );
 }
 
+/// 곡 정보 화면에 띄울 내용입니다. 서버가 곡 파일의 태그에서 읽어 줍니다.
+@immutable
+class TrackInfo {
+  const TrackInfo({
+    this.genre = '',
+    this.album = '',
+    this.year = '',
+    this.lyrics = '',
+    this.duration = 0,
+    this.added = 0,
+    this.sunoUrl = '',
+    this.sunoModel = '',
+  });
+
+  factory TrackInfo.fromJson(Map<String, dynamic> json) {
+    String text(String key) => (json[key] as String?) ?? '';
+    return TrackInfo(
+      genre: text('genre'),
+      album: text('album'),
+      year: text('year'),
+      lyrics: text('lyrics'),
+      duration: ((json['duration'] as num?) ?? 0).toDouble(),
+      added: ((json['added'] as num?) ?? 0).toInt(),
+      sunoUrl: text('suno_url'),
+      sunoModel: text('suno_model'),
+    );
+  }
+
+  final String genre;
+  final String album;
+  final String year;
+  final String lyrics;
+  final double duration;
+
+  /// 보관함에 들어온 시각(유닉스 초)입니다. 모르면 0 입니다.
+  final int added;
+  final String sunoUrl;
+  final String sunoModel;
+}
+
 /// 녹음이나 받기 작업 하나입니다. 서버 `/api/jobs` 의 모양입니다.
 @immutable
 class Job {
@@ -123,6 +163,7 @@ enum ApiFail {
   me,
   pair,
   devices,
+  info,
 }
 
 /// 서버가 이 요청을 누구로 보는지입니다.
@@ -287,6 +328,15 @@ class Api {
     } on Exception {
       return '';
     }
+  }
+
+  Future<TrackInfo> info(String id) async {
+    final body = await _json(
+      _client.get(_at('/api/info/${Uri.encodeComponent(id)}')),
+      ApiFail.info,
+    );
+    if (body is! Map<String, dynamic>) throw ApiException(ApiFail.info);
+    return TrackInfo.fromJson(body);
   }
 
   Future<List<Track>> tracks() async {

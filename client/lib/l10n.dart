@@ -88,6 +88,18 @@ abstract class S {
   String get menuUnlike;
   String get menuRemove;
   String get removedFromList;
+  String get menuInfo;
+  String get infoStyle;
+  String get infoGenre;
+  String get infoAlbum;
+  String get infoYear;
+  String get infoLength;
+  String get infoAdded;
+  String get infoModel;
+  String get infoOpenSuno;
+  String get infoNothing;
+  String get copy;
+  String get copied;
   String get undo;
   String get sleepTimer;
   String minutesTag(int m);
@@ -311,6 +323,30 @@ class _Ko extends S {
   @override
   String get removedFromList => '목록에서 뺐습니다';
   @override
+  String get menuInfo => '곡 정보';
+  @override
+  String get infoStyle => '스타일';
+  @override
+  String get infoGenre => '장르';
+  @override
+  String get infoAlbum => '앨범';
+  @override
+  String get infoYear => '연도';
+  @override
+  String get infoLength => '길이';
+  @override
+  String get infoAdded => '추가한 날';
+  @override
+  String get infoModel => '수노 모델';
+  @override
+  String get infoOpenSuno => '수노에서 엽니다';
+  @override
+  String get infoNothing => '파일에 담긴 곡 정보가 없습니다';
+  @override
+  String get copy => '복사';
+  @override
+  String get copied => '복사했습니다';
+  @override
   String get undo => '되돌리기';
   @override
   String get sleepTimer => '잠들기 타이머';
@@ -518,6 +554,7 @@ class _Ko extends S {
     ApiFail.me => '로그인 정보를 받지 못했습니다',
     ApiFail.pair => '기기를 연결하지 못했습니다',
     ApiFail.devices => '기기 목록을 받지 못했습니다',
+    ApiFail.info => '곡 정보를 불러오지 못했습니다',
   };
 }
 
@@ -636,6 +673,30 @@ class _En extends S {
   String get menuRemove => 'Remove from list';
   @override
   String get removedFromList => 'Removed from the list';
+  @override
+  String get menuInfo => 'Song info';
+  @override
+  String get infoStyle => 'Style';
+  @override
+  String get infoGenre => 'Genre';
+  @override
+  String get infoAlbum => 'Album';
+  @override
+  String get infoYear => 'Year';
+  @override
+  String get infoLength => 'Length';
+  @override
+  String get infoAdded => 'Added';
+  @override
+  String get infoModel => 'Suno model';
+  @override
+  String get infoOpenSuno => 'Open in Suno';
+  @override
+  String get infoNothing => 'This file has no song info';
+  @override
+  String get copy => 'Copy';
+  @override
+  String get copied => 'Copied';
   @override
   String get undo => 'Undo';
   @override
@@ -853,6 +914,7 @@ class _En extends S {
     ApiFail.me => 'Could not check who is signed in',
     ApiFail.pair => 'Could not pair the device',
     ApiFail.devices => 'Could not load the devices',
+    ApiFail.info => 'Could not load song info',
   };
 }
 
@@ -966,6 +1028,30 @@ class _Ja extends S {
   String get menuRemove => 'リストから外す';
   @override
   String get removedFromList => 'リストから外しました';
+  @override
+  String get menuInfo => '曲の情報';
+  @override
+  String get infoStyle => 'スタイル';
+  @override
+  String get infoGenre => 'ジャンル';
+  @override
+  String get infoAlbum => 'アルバム';
+  @override
+  String get infoYear => '年';
+  @override
+  String get infoLength => '長さ';
+  @override
+  String get infoAdded => '追加した日';
+  @override
+  String get infoModel => 'Suno モデル';
+  @override
+  String get infoOpenSuno => 'Suno で開きます';
+  @override
+  String get infoNothing => 'このファイルには曲の情報がありません';
+  @override
+  String get copy => 'コピー';
+  @override
+  String get copied => 'コピーしました';
   @override
   String get undo => '元に戻す';
   @override
@@ -1173,5 +1259,6 @@ class _Ja extends S {
     ApiFail.me => 'ログイン情報を取得できませんでした',
     ApiFail.pair => '端末を接続できませんでした',
     ApiFail.devices => '端末の一覧を取得できませんでした',
+    ApiFail.info => '曲の情報を読み込めませんでした',
   };
 }
