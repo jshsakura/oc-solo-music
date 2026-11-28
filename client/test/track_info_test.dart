@@ -80,10 +80,14 @@ void main() {
 
     await t.tap(find.text('Copy').first);
     await t.pump();
-    await t.tap(find.text('Copy').last);
+    expect(find.text('Copied'), findsOneWidget);
+    await t.tap(find.text('Copy'));
     await t.pump();
     expect(clipboard, ['dream pop, female vocals', '[Verse]\nhello']);
-    expect(find.text('Copied'), findsOneWidget);
+    expect(find.text('Copied'), findsNWidgets(2));
+
+    await t.pump(const Duration(seconds: 3));
+    expect(find.text('Copied'), findsNothing);
   });
 
   testWidgets('a song from elsewhere calls it genre and has no suno link', (
@@ -97,6 +101,20 @@ void main() {
     expect(find.text('Genre'), findsOneWidget);
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Open in Suno'), findsNothing);
+  });
+
+  testWidgets('a link that is not suno gets no open button', (t) async {
+    await open(
+      t,
+      _FakeApi(
+        () async => const TrackInfo(
+          genre: 'folk',
+          sunoUrl: 'https://example.com/song/x',
+        ),
+      ),
+    );
+    expect(find.text('Open in Suno'), findsNothing);
+    expect(find.text('Genre'), findsOneWidget);
   });
 
   testWidgets('a file with no info says so', (t) async {

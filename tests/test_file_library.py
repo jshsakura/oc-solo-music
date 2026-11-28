@@ -148,3 +148,58 @@ def test_song_info_comes_from_the_file_for_any_source(lib, client):
     assert (mine["album"], mine["suno_url"], mine["genre"]) == ("Home", "", "")
     assert client.get("/api/info/nope").status_code == 404
     assert client.get("/api/info/..%2Fsolo").status_code == 404
+
+
+def test_writing_tags_keeps_the_file_readable_by_others(tmp_path):
+    song = tmp_path / "s.mp3"
+    song.write_bytes(b"\xff\xfb" + b"\0" * 100)
+    song.chmod(0o644)
+
+    tags.write(song, {tags.TITLE: "T"})
+
+    assert song.stat().st_mode & 0o777 == 0o644
+
+
+def test_a_broken_file_does_not_take_down_the_whole_list(lib, client):
+    add_song(lib, "a")
+    library.upsert(lib, "a", title="Fine")
+    (lib / "bad.m4a").write_bytes(b"not really audio" * 6)
+
+    ids = {t["id"]: t["title"] for t in client.get("/api/tracks").json()}
+
+    assert ids["a"] == "Fine" and "bad" in ids
+
+
+def test_an_odd_length_field_from_another_tagger_keeps_the_rest_readable(tmp_path):
+    from mutagen.id3 import ID3, TLEN
+    song = tmp_path / "s.mp3"
+    song.write_bytes(b"\xff\xfb" + b"\0" * 100)
+    tags.write(song, {tags.TITLE: "Still Here", tags.ADDED: "soon"})
+    id3 = ID3(song)
+    id3.add(TLEN(encoding=3, text="123.5"))
+    id3.save(song)
+
+    assert tags.read(song)[tags.TITLE] == "Still Here"
+    assert tags.number(tags.read(song)[tags.ADDED]) == 0
+
+
+def test_suno_fill_does_not_erase_what_the_file_already_has(lib, monkeypatch):
+    add_song(lib, "a")
+    library.upsert(lib, "a", title="Mine", suno_id="cid", lyrics="kept words")
+    monkeypatch.setattr(suno_record, "fetch_clip", lambda _id: {"title": "", "metadata": {"tags": "lofi"}})
+    monkeypatch.setattr(suno_record.time, "sleep", lambda _s: None)
+
+    assert suno_record.fill_from_suno(lib) == 1
+
+    found = tags.read(lib / "a.mp3")
+    assert (found[tags.TITLE], found[tags.LYRICS], found[tags.GENRE]) == ("Mine", "kept words", "lofi")
+
+
+def test_stamping_the_added_time_never_overwrites_one_written_meanwhile(tmp_path):
+    song = tmp_path / "s.mp3"
+    song.write_bytes(b"\xff\xfb" + b"\0" * 100)
+    tags.write(song, {tags.ADDED: "1700000000"})
+
+    tags.write(song, {tags.ADDED: "1800000000", tags.TITLE: "T"}, only_missing=True)
+
+    assert (tags.read(song)[tags.ADDED], tags.read(song)[tags.TITLE]) == ("1700000000", "T")

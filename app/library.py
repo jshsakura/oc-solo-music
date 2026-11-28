@@ -74,7 +74,7 @@ def _move_db_info_into_files(lib: Path, db: sqlite3.Connection) -> None:
         if row.get("duration"):
             info[T.DURATION] = str(row["duration"])
         cover = path.with_suffix(".jpg")
-        T.write(path, info, cover.read_bytes() if cover.exists() else None)
+        T.write_if_possible(path, info, cover.read_bytes() if cover.exists() else None)
 
 
 JOBS_SCHEMA = """
@@ -119,10 +119,11 @@ def locate(lib: Path, track_id: str) -> Path | None:
 
 def _move(src_dir: Path, dst_dir: Path, track_id: str) -> None:
     dst_dir.mkdir(exist_ok=True)
-    for suffix in SUFFIXES:
-        src = src_dir / f"{track_id}{suffix}"
-        if src.exists():
-            shutil.move(src, dst_dir / src.name)
+    with T.lock:  # 태그를 쓰는 중에 옮기면 쓰기가 옛 자리에 파일을 되살립니다
+        for suffix in SUFFIXES:
+            src = src_dir / f"{track_id}{suffix}"
+            if src.exists():
+                shutil.move(src, dst_dir / src.name)
 
 
 def archive(lib: Path, track_id: str) -> None:
@@ -193,21 +194,17 @@ def sync(lib: Path) -> None:
 def _cache(db: sqlite3.Connection, path: Path, *, archived: bool) -> None:
     """파일 하나의 태그를 캐시에 옮깁니다. 처음 보는 파일이면 들어온 시각을 파일에 적고, 표지가 파일 안에만 있으면 꺼내 둡니다."""
     info = T.read(path)
-    if T.ADDED not in info:
-        T.write(path, {T.ADDED: str(int(path.stat().st_mtime))})
+    if T.ADDED not in info and T.write_if_possible(path, {T.ADDED: str(int(path.stat().st_mtime))}, only_missing=True):
         info = T.read(path)
     cover = path.with_suffix(".jpg")
     if not cover.exists() and (embedded := T.read_cover(path)):
         cover.write_bytes(embedded)
-    try:
-        duration = float(info.get(T.DURATION) or 0) or None
-    except ValueError:
-        duration = None
+    duration = T.number(info.get(T.DURATION)) or None
     db.execute(
         """INSERT OR REPLACE INTO tracks
            (id, title, artist, tags, duration, suno_id, liked, added, archived, source, lyrics, mtime)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
         (path.stem, info.get(T.TITLE) or path.stem.replace("-", " ").title(), info.get(T.ARTIST, ""),
          info.get(T.GENRE, ""), duration, info.get(T.SUNO_ID, ""), int(info.get(T.LIKED) == "1"),
-         int(info.get(T.ADDED) or path.stat().st_mtime), int(archived), info.get(T.SOURCE, ""),
+         int(T.number(info.get(T.ADDED)) or path.stat().st_mtime), int(archived), info.get(T.SOURCE, ""),
          info.get(T.LYRICS, ""), path.stat().st_mtime_ns))

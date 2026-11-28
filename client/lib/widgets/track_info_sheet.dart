@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -47,14 +49,6 @@ class _InfoBody extends StatefulWidget {
 class _InfoBodyState extends State<_InfoBody> {
   late final Future<TrackInfo> _info = widget.api.info(widget.track.id);
 
-  Future<void> _copy(String text) async {
-    await Clipboard.setData(ClipboardData(text: text));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(S.of(context).copied)));
-  }
-
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
@@ -81,7 +75,7 @@ class _InfoBodyState extends State<_InfoBody> {
                 child: Center(child: CircularProgressIndicator()),
               );
             }
-            return _Details(info: info, onCopy: _copy);
+            return _Details(info: info);
           },
         ),
       ],
@@ -121,15 +115,17 @@ class _Header extends StatelessWidget {
 }
 
 class _Details extends StatelessWidget {
-  const _Details({required this.info, required this.onCopy});
+  const _Details({required this.info});
 
   final TrackInfo info;
-  final void Function(String text) onCopy;
 
   @override
   Widget build(BuildContext context) {
     final s = S.of(context);
-    final fromSuno = info.sunoUrl.isNotEmpty;
+    final suno = Uri.tryParse(info.sunoUrl);
+    // 올린 파일에 든 아무 주소나 열지 않도록 수노 주소일 때만 단추를 둡니다.
+    final fromSuno =
+        suno != null && suno.scheme == 'https' && suno.host == 'suno.com';
     final rows = [
       (s.infoAlbum, info.album),
       (s.infoYear, info.year),
@@ -149,19 +145,15 @@ class _Details extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => launchUrl(Uri.parse(info.sunoUrl)),
+              onPressed: () => launchUrl(suno, webOnlyWindowName: '_blank'),
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
               label: Text(s.infoOpenSuno),
             ),
           ),
         if (info.genre.isNotEmpty)
-          _Block(
-            label: fromSuno ? s.infoStyle : s.infoGenre,
-            text: info.genre,
-            onCopy: onCopy,
-          ),
+          _Block(label: fromSuno ? s.infoStyle : s.infoGenre, text: info.genre),
         if (info.lyrics.isNotEmpty)
-          _Block(label: s.lyricsLabel, text: info.lyrics, onCopy: onCopy),
+          _Block(label: s.lyricsLabel, text: info.lyrics),
       ],
     );
   }
@@ -197,12 +189,40 @@ class _Row extends StatelessWidget {
 }
 
 /// 제목 줄 오른쪽에 복사 단추가 붙은 긴 글입니다.
-class _Block extends StatelessWidget {
-  const _Block({required this.label, required this.text, required this.onCopy});
+/// 복사했다는 표시는 단추 자리에 잠깐 띄웁니다. 스낵바는 시트 뒤에 깔려 보이지 않습니다.
+class _Block extends StatefulWidget {
+  const _Block({required this.label, required this.text});
 
   final String label;
   final String text;
-  final void Function(String text) onCopy;
+
+  @override
+  State<_Block> createState() => _BlockState();
+}
+
+class _BlockState extends State<_Block> {
+  var _copied = false;
+  Timer? _reset;
+
+  Future<void> _copy() async {
+    try {
+      await Clipboard.setData(ClipboardData(text: widget.text));
+    } on PlatformException {
+      return; // 브라우저가 클립보드를 막으면 글을 길게 눌러 직접 고를 수 있습니다
+    }
+    if (!mounted) return;
+    setState(() => _copied = true);
+    _reset?.cancel();
+    _reset = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -214,14 +234,17 @@ class _Block extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                label,
+                widget.label,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
             TextButton.icon(
-              onPressed: () => onCopy(text),
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              label: Text(S.of(context).copy),
+              onPressed: _copy,
+              icon: Icon(
+                _copied ? Icons.check_rounded : Icons.copy_rounded,
+                size: 18,
+              ),
+              label: Text(_copied ? S.of(context).copied : S.of(context).copy),
             ),
           ],
         ),
@@ -231,7 +254,10 @@ class _Block extends StatelessWidget {
             color: Palette.sunk,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: SelectableText(text, style: const TextStyle(height: 1.5)),
+          child: SelectableText(
+            widget.text,
+            style: const TextStyle(height: 1.5),
+          ),
         ),
       ],
     ),

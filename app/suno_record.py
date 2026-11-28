@@ -213,10 +213,14 @@ def fill_from_suno(lib: Path) -> int:
         if n:
             time.sleep(0.4 + 0.5 * (n % 2))  # 사이트에 몰아서 묻지 않도록 요청 사이를 띄웁니다
         try:
-            info = clip_info(clip_id, fetch_clip(clip_id))
+            fetched = clip_info(clip_id, fetch_clip(clip_id))
         except (OSError, ValueError):
             continue
-        library.save(lib, track_id, info)
+        info = {k: v for k, v in fetched.items() if v}  # 수노가 빈 값을 주면 파일에 있던 가사나 제목을 지우지 않습니다
+        try:
+            library.save(lib, track_id, info)
+        except OSError:  # 그사이 앱에서 빼서 파일이 옮겨졌습니다
+            continue
         filled += 1
     return filled
 

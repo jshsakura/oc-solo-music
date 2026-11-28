@@ -121,7 +121,13 @@ void main() {
     await t.longPress(find.text('Song a'));
     await t.pumpAndSettle();
     expect(played, isEmpty);
-    for (final label in ['Play', 'Song info', 'Like', 'Download', 'Remove from list']) {
+    for (final label in [
+      'Play',
+      'Song info',
+      'Like',
+      'Download',
+      'Remove from list',
+    ]) {
       expect(find.text(label), findsOneWidget);
     }
   });
