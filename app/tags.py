@@ -6,6 +6,7 @@ Solo 와 수노만 쓰는 칸은 이름을 붙인 사용자 칸(ID3 TXXX, MP4 fr
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import tempfile
@@ -32,8 +33,9 @@ _ID3 = {TITLE: TIT2, ARTIST: TPE1, ALBUM: TALB, YEAR: TDRC, GENRE: TCON}
 _MP4 = {TITLE: "\xa9nam", ARTIST: "\xa9ART", ALBUM: "\xa9alb", YEAR: "\xa9day", GENRE: "\xa9gen", LYRICS: "\xa9lyr"}
 _FREEFORM = "----:com.apple.iTunes:"
 
-# 같은 파일을 두 군데서 동시에 고치면 한쪽이 쓴 것이 사라집니다. 서버 안의 쓰기는 한 줄로 세웁니다.
-_writing = threading.Lock()
+# 같은 파일을 두 군데서 동시에 고치거나 옮기면 한쪽이 쓴 것이 사라집니다. 서버 안의 쓰기와 옮기기는 한 줄로 세웁니다.
+lock = threading.Lock()
+log = logging.getLogger(__name__)
 
 
 def read(path: Path) -> dict[str, str]:
@@ -59,12 +61,13 @@ def write(path: Path, info: dict[str, str], cover: bytes | None = None) -> None:
     """info 의 칸만 바꾸고 나머지 태그는 그대로 둡니다. 값이 빈 문자열이면 그 칸을 지웁니다.
 
     사본에 쓴 뒤 바꿔 끼웁니다. 재생 중인 파일을 제자리에서 고쳐 쓰면 듣던 소리가 깨집니다."""
-    with _writing:
+    with lock:
         fd, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tagging", dir=path.parent)
         os.close(fd)
         part = Path(name)
         try:
             shutil.copyfile(path, part)
+            shutil.copymode(path, part)  # mkstemp 는 600 으로 만듭니다. 원래 권한을 지켜야 다른 사용자와 컨테이너가 읽습니다
             if path.suffix.lower() == ".m4a":
                 _write_mp4(part, info, cover)
             else:
@@ -72,6 +75,24 @@ def write(path: Path, info: dict[str, str], cover: bytes | None = None) -> None:
             os.replace(part, path)
         finally:
             part.unlink(missing_ok=True)
+
+
+def write_if_possible(path: Path, info: dict[str, str], cover: bytes | None = None) -> bool:
+    """망가진 파일 하나 때문에 보관함 전체가 멈추지 않도록, 쓰지 못하면 기록만 남기고 넘어갑니다."""
+    try:
+        write(path, info, cover)
+        return True
+    except (MutagenError, OSError, ValueError) as e:
+        log.warning("태그를 쓰지 못했습니다: %s (%s)", path.name, type(e).__name__)
+        return False
+
+
+def number(value: str | None) -> float:
+    """다른 태거가 쓴 숫자 칸이 이상해도 0 으로 읽습니다."""
+    try:
+        return float(value or 0)
+    except ValueError:
+        return 0.0
 
 
 def _read_id3(path: Path) -> dict[str, str]:
@@ -88,8 +109,8 @@ def _read_id3(path: Path) -> dict[str, str]:
         lyrics = tags.getall("USLT")
         if lyrics:
             out[LYRICS] = lyrics[0].text
-        if "TLEN" in tags:
-            out[DURATION] = f"{int(str(tags['TLEN'].text[0])) / 1000:g}"
+        if "TLEN" in tags and (ms := number(str(tags["TLEN"].text[0]))):
+            out[DURATION] = f"{ms / 1000:g}"
         for frame in tags.getall("TXXX"):
             out[frame.desc] = str(frame.text[0]) if frame.text else ""
         if GENRE_TEXT in out:

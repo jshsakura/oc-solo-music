@@ -277,8 +277,8 @@ def api_info(track_id: str):
     """곡 정보 화면에 띄울 내용입니다. 정본인 파일 태그에서 바로 읽습니다."""
     found = tags.read(find_track_file(track_id))
     info = {name: found.get(key, "") for name, key in _INFO_FIELDS.items()}
-    info["duration"] = float(found.get(tags.DURATION) or 0)
-    info["added"] = int(found.get(tags.ADDED) or 0)
+    info["duration"] = tags.number(found.get(tags.DURATION))
+    info["added"] = int(tags.number(found.get(tags.ADDED)))
     return info
 
 
