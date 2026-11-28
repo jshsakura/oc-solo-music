@@ -193,3 +193,13 @@ def test_suno_fill_does_not_erase_what_the_file_already_has(lib, monkeypatch):
 
     found = tags.read(lib / "a.mp3")
     assert (found[tags.TITLE], found[tags.LYRICS], found[tags.GENRE]) == ("Mine", "kept words", "lofi")
+
+
+def test_stamping_the_added_time_never_overwrites_one_written_meanwhile(tmp_path):
+    song = tmp_path / "s.mp3"
+    song.write_bytes(b"\xff\xfb" + b"\0" * 100)
+    tags.write(song, {tags.ADDED: "1700000000"})
+
+    tags.write(song, {tags.ADDED: "1800000000", tags.TITLE: "T"}, only_missing=True)
+
+    assert (tags.read(song)[tags.ADDED], tags.read(song)[tags.TITLE]) == ("1700000000", "T")

@@ -194,7 +194,7 @@ def sync(lib: Path) -> None:
 def _cache(db: sqlite3.Connection, path: Path, *, archived: bool) -> None:
     """파일 하나의 태그를 캐시에 옮깁니다. 처음 보는 파일이면 들어온 시각을 파일에 적고, 표지가 파일 안에만 있으면 꺼내 둡니다."""
     info = T.read(path)
-    if T.ADDED not in info and T.write_if_possible(path, {T.ADDED: str(int(path.stat().st_mtime))}):
+    if T.ADDED not in info and T.write_if_possible(path, {T.ADDED: str(int(path.stat().st_mtime))}, only_missing=True):
         info = T.read(path)
     cover = path.with_suffix(".jpg")
     if not cover.exists() and (embedded := T.read_cover(path)):

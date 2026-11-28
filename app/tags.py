@@ -57,8 +57,9 @@ def read_cover(path: Path) -> bytes | None:
         return None
 
 
-def write(path: Path, info: dict[str, str], cover: bytes | None = None) -> None:
+def write(path: Path, info: dict[str, str], cover: bytes | None = None, *, only_missing: bool = False) -> None:
     """info 의 칸만 바꾸고 나머지 태그는 그대로 둡니다. 값이 빈 문자열이면 그 칸을 지웁니다.
+    only_missing 이면 잠금 안에서 다시 읽어 아직 없는 칸만 채웁니다. 읽고 쓰는 사이에 다른 쪽이 쓴 값을 덮지 않습니다.
 
     사본에 쓴 뒤 바꿔 끼웁니다. 재생 중인 파일을 제자리에서 고쳐 쓰면 듣던 소리가 깨집니다."""
     with lock:
@@ -68,6 +69,8 @@ def write(path: Path, info: dict[str, str], cover: bytes | None = None) -> None:
         try:
             shutil.copyfile(path, part)
             shutil.copymode(path, part)  # mkstemp 는 600 으로 만듭니다. 원래 권한을 지켜야 다른 사용자와 컨테이너가 읽습니다
+            if only_missing:
+                info = {k: v for k, v in info.items() if k not in read(part)}
             if path.suffix.lower() == ".m4a":
                 _write_mp4(part, info, cover)
             else:
@@ -77,10 +80,11 @@ def write(path: Path, info: dict[str, str], cover: bytes | None = None) -> None:
             part.unlink(missing_ok=True)
 
 
-def write_if_possible(path: Path, info: dict[str, str], cover: bytes | None = None) -> bool:
+def write_if_possible(path: Path, info: dict[str, str], cover: bytes | None = None, *,
+                      only_missing: bool = False) -> bool:
     """망가진 파일 하나 때문에 보관함 전체가 멈추지 않도록, 쓰지 못하면 기록만 남기고 넘어갑니다."""
     try:
-        write(path, info, cover)
+        write(path, info, cover, only_missing=only_missing)
         return True
     except (MutagenError, OSError, ValueError) as e:
         log.warning("태그를 쓰지 못했습니다: %s (%s)", path.name, type(e).__name__)
